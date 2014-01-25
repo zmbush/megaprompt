@@ -1,0 +1,527 @@
+#!/usr/bin/env python
+# coding=UTF-8
+
+"""
+    To use this file, add the following lines to:
+
+    export PROMPT_COMMAND='PS1=$(python /path/to/this/file.py)'
+"""
+
+import sys
+import os
+import subprocess
+import time
+import signal
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+
+engine = create_engine('sqlite:///:memory:', echo=True)
+Base = declarative_base()
+
+BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
+ZSH = False
+if 'zsh' in sys.argv:
+    ZSH = True
+
+FLAGS = [1 << n for n in range(32)]
+TOP, BOTTOM, LEFT, RIGHT = FLAGS[:4]
+
+line_types = {'clean': {
+    TOP | BOTTOM | LEFT | RIGHT: '┼',
+    TOP | BOTTOM | LEFT:         '┤',
+    TOP | BOTTOM | RIGHT:        '├',
+    TOP | BOTTOM:                '│',
+    TOP | LEFT | RIGHT:          '┴',
+    TOP | LEFT:                  '┘',
+    TOP | RIGHT:                 '└',
+    BOTTOM | LEFT:               '┐',
+    BOTTOM | RIGHT:              '┌',
+    BOTTOM | LEFT | RIGHT:       '┬',
+    LEFT | RIGHT:                '─',
+}}
+
+lines = line_types['clean']
+
+
+def createTimeout(seconds):
+    class TimeoutException(Exception):
+        pass
+
+    def timeout_function(f1):
+        def f2(*args):
+            def timeoutHandler(signum, frame):
+                raise TimeoutException()
+            old_handler = signal.signal(signal.SIGALRM, timeoutHandler)
+            signal.setitimer(signal.ITIMER_REAL, seconds)
+            try:
+                retval = f1(*args)
+            except TimeoutException:
+                retval = False
+            finally:
+                signal.signal(signal.SIGALRM, old_handler)
+            signal.alarm(0)
+            return retval
+        return f2
+    return timeout_function
+
+
+def getSubprocessOutput(arguments):
+    s = subprocess.Popen(arguments, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+    s.wait()
+    if s.returncode == 0:
+        return s.communicate()[0]
+    else:
+        raise subprocess.CalledProcessError('fail', 'fail')
+
+
+def bgcolor(col, bg):
+    if ZSH:
+        return '%%{\033[0;%d;%dm%%}' % (col + 30, bg + 40)
+    else:
+        return '\[\033[0;%d;%dm\]' % (col + 30, bg + 40)
+
+
+def color(col):
+    if ZSH:
+        return '%%{\033[0;%dm%%}' % (col + 30)
+    else:
+        return '\[\033[0;%dm\]' % (col + 30)
+
+
+def bcolor(col):
+    if ZSH:
+        return '%%{\033[1;%dm%%}' % (col + 30)
+    else:
+        return '\[\033[1;%dm\]' % (col + 30)
+
+
+def bold():
+    if ZSH:
+        return '%{\033[1m%}'
+    else:
+        return '\[\033[1m\]'
+
+
+def reset():
+    if ZSH:
+        return '%{\033[0m%}'
+    else:
+        return '\[\033[0m\]'
+
+
+def inline(text, width, attr=color(MAGENTA)):
+    remain = width - len(text) - 2
+    l = ''
+    for i in range(remain):
+        l += lines[LEFT | RIGHT]
+    return box(text, attr) + l
+
+
+def box(text, attr=color(MAGENTA)):
+    retval = lines[TOP | BOTTOM | LEFT] + attr + text + reset()
+    retval += lines[TOP | BOTTOM | RIGHT]
+    return retval
+
+
+def trailOff():
+    retval = ''
+    for i in range(10):
+        retval += lines[LEFT | RIGHT]
+    return retval
+
+
+def getWeb(parts):
+    line = reset() + lines[BOTTOM | RIGHT] + lines[LEFT | RIGHT]
+    cwd = os.getcwd().split('/')
+    if 'www' in cwd:
+        loc = cwd.index('www')
+        wwwStuff = cwd[loc:]
+        if len(wwwStuff) < 2:
+            line += box("Websites") + trailOff()
+            parts.append(line)
+            parts.append(lines[TOP | RIGHT] + lines[LEFT | BOTTOM | RIGHT] +
+                         trailOff())
+            sites = sorted(os.listdir('.'))
+            if len(sites) > 0:
+                for i in range(len(sites) - 1):
+                    parts.append(' %s %s' % (lines[TOP | BOTTOM], sites[i]))
+                parts.append('%s%s %s' % (lines[BOTTOM | RIGHT],
+                                          lines[TOP | LEFT],
+                                          sites[len(sites) - 1]))
+        elif len(wwwStuff) < 3:
+            line += box(wwwStuff[1]) + trailOff()
+            parts.append(line)
+            parts.append(lines[TOP | RIGHT] + lines[LEFT | BOTTOM | RIGHT] +
+                         trailOff())
+            sites = sorted(os.listdir('.'))
+            if len(sites) > 0:
+                for i in range(len(sites) - 1):
+                    parts.append(' %s %s%s.%s%s' % (lines[TOP | BOTTOM],
+                                                    color(RED), sites[i],
+                                                    wwwStuff[1], reset()))
+                parts.append('%s%s %s%s.%s%s' % (lines[BOTTOM | RIGHT],
+                                                 lines[TOP | LEFT], color(RED),
+                                                 sites[len(sites) - 1],
+                                                 wwwStuff[1], reset()))
+        else:
+            parts.append(line + box('http://' + wwwStuff[2] + '.' +
+                         wwwStuff[1] + '/' + '/'.join(wwwStuff[3:])) +
+                         trailOff())
+    else:
+        line += box('/'.join(cwd).replace(os.environ['HOME'], '~'))
+        line += lines[LEFT | RIGHT]
+        if ZSH:
+            line += box("%m") + trailOff()
+        else:
+            line += box("\H") + trailOff()
+        parts.append(line)
+    return parts
+
+
+def getMain(parts):
+    line = reset() + lines[BOTTOM | RIGHT] + lines[LEFT | RIGHT]
+    if ZSH:
+        line += box('%c') + lines[LEFT | RIGHT] + box('%m') + trailOff()
+    else:
+        line += box('\w') + lines[LEFT | RIGHT] + box('\H') + trailOff()
+    parts.append(line)
+    return parts
+
+
+def isGit():
+    try:
+        s = subprocess.Popen(['git', 'rev-parse', '--git-dir'],
+                             stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        s.wait()
+        if s.returncode == 0:
+            return True
+        else:
+            return False
+    except subprocess.CalledProcessError:
+        return False
+
+
+def colorStat(stat):
+    if stat[0] == ' ':
+        check = stat[1]
+        if 'M' == check:
+            return color(BLUE) + stat + reset()
+        elif 'A' == check:
+            return color(GREEN) + stat + reset()
+        elif 'D' == check:
+            return color(RED) + stat + reset()
+    elif stat[1] == ' ':
+        check = stat[0]
+        if 'M' == check:
+            return bcolor(BLUE) + stat + reset()
+        elif 'A' == check:
+            return bcolor(GREEN) + stat + reset()
+        elif 'D' == check:
+            return bcolor(RED) + stat + reset()
+        elif 'R' == check:
+            return bcolor(CYAN) + stat + reset()
+        elif 'U' == check:
+            return bcolor(YELLOW) + stat + reset()
+    else:
+        check = stat[0:2]
+        if '??' == check:
+            return bcolor(WHITE) + stat + reset()
+        else:
+            return bcolor(RED) + stat + reset()
+    return stat
+
+
+def stashedItemsCount():
+    stashList = filter(bool, getSubprocessOutput(['git', 'stash', 'list']).split("\n"))
+    return len(stashList)
+
+
+def gitStatus(parts):
+    status = getSubprocessOutput(['git', 'status', '-s'])
+    statuses = filter(bool, status.split('\n'))
+    if len(statuses) > 0:
+        retval = lines[TOP | RIGHT] + lines[LEFT | RIGHT | BOTTOM]
+        retval += lines[LEFT | RIGHT]
+        retval += box("Git Status", color(CYAN))
+        retval += trailOff()
+        parts.append(retval)
+        for s in statuses:
+            parts.append(' %s %s' % (lines[TOP | BOTTOM], colorStat(s)))
+        return True
+    else:
+        return False
+
+
+def gitBranch():
+    branches = getSubprocessOutput(['git', 'branch']).split('\n')
+    for b in branches:
+        if b == '':
+            continue
+        if b[0] == '*':
+            return b[2:]
+    return ''
+
+
+def hasBranch(branch):
+    branches = getSubprocessOutput(['git', 'branch']).split('\n')
+    for b in branches:
+        if b == '':
+            continue
+        if b[2:] == branch:
+            return True
+    return False
+
+
+def hasRemote(remote):
+    remotes = getSubprocessOutput(['git', 'branch', '-r']).split('\n')
+    for r in remotes:
+        if r == '':
+            continue
+        if r[2:] == remote:
+            return True
+    return False
+
+
+def gitRemote(branch):
+    if branch == '':
+        return ''
+    try:
+        return getSubprocessOutput(['git', 'config',
+                                    'branch.' + branch +
+                                    '.remote']).split('\n')[0]
+    except:
+        if hasRemote('git-svn'):
+            return 'git-svn'
+        else:
+            return '?'
+
+
+def gitOutgoing(parts, remote, indented):
+    try:
+        remote = gitRemote(gitBranch())
+        if remote == 'git-svn':
+            outgoing = getSubprocessOutput(['git', 'log', remote + '..',
+                                            '--pretty=format:%h %s']
+                                           ).split('\n')
+        else:
+            outgoing = getSubprocessOutput(['git', 'log', '@{u}..',
+                                            '--pretty=format:%h %s']
+                                           ).split('\n')
+        outgoing = filter(bool, outgoing)
+        if len(outgoing) > 0:
+            line = lines[TOP | RIGHT] + lines[LEFT | RIGHT | BOTTOM]
+            line += lines[LEFT | RIGHT]
+            if indented:
+                line = ' ' + lines[RIGHT | TOP | BOTTOM]
+                line += lines[LEFT | RIGHT]
+            line += box("Git Outgoing", color(CYAN))
+            line += trailOff()
+            parts.append(line)
+            for out in outgoing:
+                parts.append(' %s %s' % (lines[TOP | BOTTOM], out))
+            return True
+        return indented
+    except subprocess.CalledProcessError:
+        return indented
+
+
+def ensureGit(parts, indented):
+    if not indented:
+        line = lines[TOP | RIGHT] + lines[LEFT | RIGHT | BOTTOM]
+        line += lines[LEFT | RIGHT]
+        line += box("Git", color(CYAN)) + trailOff()
+        parts.append(line)
+
+
+def finalizeGit(parts, indented):
+    line = lines[TOP | BOTTOM | RIGHT] + lines[LEFT | RIGHT]
+    if indented:
+        line = lines[BOTTOM | RIGHT] + lines[TOP | LEFT | RIGHT]
+        line += lines[LEFT | RIGHT]
+    branch = gitBranch()
+    remote = gitRemote(branch)
+    if branch == '':
+        line += box('New Repository', color(CYAN))
+    else:
+        line += box(color(CYAN) + branch + reset() + ' -> ' + color(MAGENTA) +
+                    remote)
+    stashSize = stashedItemsCount()
+    if stashSize > 0:
+        c = BLUE
+        if stashSize > 5:
+            c = YELLOW
+        if stashSize > 30:
+            c = RED
+        line += lines[LEFT | RIGHT] + box(color(c) + str(stashSize) + " stashed changes")
+    line += trailOff()
+    parts.append(line)
+
+
+@createTimeout(.5)
+def getGit(parts):
+    if isGit() and not '.git' in os.getcwd():
+        indented = gitStatus(parts)
+        indented = gitOutgoing(parts, gitRemote(gitBranch()), indented)
+        finalizeGit(parts, indented)
+    return parts
+
+
+@createTimeout(.1)
+def isSvn():
+    try:
+        s = subprocess.Popen(['svn', 'pl'], stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE)
+        s.wait()
+        if s.returncode == 0:
+            return True
+        else:
+            return False
+    except subprocess.CalledProcessError:
+        return False
+    except OSError:
+        return False
+
+
+@createTimeout(.5)
+def svnStatus(parts):
+    status = getSubprocessOutput(['svn', 'status'])
+    statuses = filter(bool, status.split('\n'))
+    if len(statuses) > 0:
+        retval = lines[TOP | RIGHT] + lines[LEFT | RIGHT | BOTTOM]
+        retval += lines[LEFT | RIGHT]
+        retval += box("Svn Status", color(CYAN))
+        retval += trailOff()
+        parts.append(retval)
+        for s in statuses:
+            parts.append(' %s %s' % (lines[TOP | BOTTOM], colorStat(s)))
+        return True
+    else:
+        return False
+
+
+def finalizeSvn(parts, indented):
+    line = lines[TOP | BOTTOM | RIGHT] + lines[LEFT | RIGHT]
+    if indented:
+        line = lines[BOTTOM | RIGHT] + lines[TOP | LEFT | RIGHT]
+        line += lines[LEFT | RIGHT]
+    line += box("Subversion", color(CYAN))
+    line += trailOff()
+    parts.append(line)
+
+
+@createTimeout(.5)
+def getSvn(parts):
+    if isSvn():
+        changes = svnStatus(parts)
+        finalizeSvn(parts, changes)
+    return parts
+
+
+def getDue(parts):
+    currDir = os.getcwd().split('/')
+    success = False
+    openedFile = None
+    while not success and len(currDir) > 0:
+        try:
+            openedFile = open('/'.join(currDir) + '/.due')
+            success = True
+        except IOError:
+            del currDir[-1]
+    if openedFile is None:
+        return
+    timeText = openedFile.readline().strip()
+    custom = (openedFile.readline().strip(),
+              openedFile.readline().strip(),
+              openedFile.readline().strip())
+    if custom[0] == '' or custom[1] == '' or custom[2] == '':
+        words = ('Project', 'is due in', 'was due')
+    else:
+        words = custom
+    timeData = None
+    try:
+        timeData = time.mktime(time.strptime(timeText))
+    except:
+        return
+    now = time.time()
+    seconds = int(timeData - now)
+    pastDue = False
+    if seconds < 0:
+        seconds = -seconds
+        pastDue = True
+
+    due = ""
+    ups = [10, 10, 10, 365, 24, 60, 60, 1]
+    offsets = [reduce(lambda a, b: a * b, ups[n:]) for n in range(len(ups))]
+    offsets += [60 * 60 * 24 * 30]
+    amounts = [('millennium', 'millennia'), ('century', 'centuries'),
+               'decade', 'year', 'day', 'hour', 'minute', 'second', 'month']
+    units = reversed(sorted(zip(offsets, amounts)))
+
+    v = seconds
+
+    accuracy = 2
+    count = 0
+
+    for offset, unit in units:
+        this = v / offset
+        if type(unit) is tuple:
+            singular = unit[0]
+            plural = unit[1]
+        else:
+            singular = unit
+            plural = unit + "s"
+
+        if this > 1:
+            count += 1
+            due += "%d %s " % (this, plural)
+        elif this > 0:
+            count += 1
+            due += "%d %s " % (this, singular)
+        if count >= accuracy:
+            break
+        v = v % offset
+
+    due = due.strip()
+    line = lines[TOP | BOTTOM | RIGHT] + lines[LEFT | RIGHT]
+
+    mess = color(MAGENTA) + words[0] + " "
+    if not pastDue:
+        mess += words[1] + ": " + color(CYAN)
+    else:
+        mess += words[2] + ": " + color(RED)
+    if due != "":
+        mess += due
+        if pastDue:
+            mess += " ago"
+    else:
+        mess = "Project due: " + color(CYAN) + "now"
+    line += box(mess) + trailOff()
+    parts.append(line)
+
+
+def main():
+    parts = []
+    getMain(parts)
+    getDue(parts)
+
+    # Version Control
+    getGit(parts)
+    getSvn(parts)
+
+    if ZSH:
+        parts.append(lines[TOP | RIGHT] + lines[LEFT | RIGHT] + color(RED) +
+                     "%# " + reset())
+    else:
+        parts.append(lines[TOP | RIGHT] + lines[LEFT | RIGHT] + color(RED) +
+                     "\$ " + reset())
+    retval = '\n'.join(parts)
+    print retval
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt as ki:
+        toprint = lines[LEFT | RIGHT] + lines[LEFT | RIGHT] + color(RED)
+        toprint += "\$ " + reset()
+        print toprint
