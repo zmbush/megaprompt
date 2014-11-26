@@ -1,0 +1,12 @@
+[package]
+
+name = "Megaprompt"
+version = "0.0.1"
+authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
+
+[dependencies.git2]
+path = "../../../Projects/git2-rs"
+
+[[bin]]
+
+name = 'megaprompt'
