@@ -8,5 +8,4 @@ authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
 path = "../../../Projects/git2-rs"
 
 [[bin]]
-
 name = 'megaprompt'
