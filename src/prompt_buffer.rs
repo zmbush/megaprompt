@@ -19,9 +19,9 @@ pub fn reset() -> String{
     col_cmd("0m".to_string())
 }
 
-pub struct PromptBuffer<'a> {
-    lines: Vec<PromptLine<'a>>,
-    current_line: PromptLine<'a>
+pub struct PromptBuffer {
+    lines: Vec<PromptLine>,
+    current_line: PromptLine
 }
 
 enum PromptLineType {
@@ -29,14 +29,16 @@ enum PromptLineType {
     Free
 }
 
-struct PromptBox<'a> {
+impl Copy for PromptLineType {}
+
+struct PromptBox {
     color: u16,
     text: String,
     is_bold: bool
 }
 
-impl<'a> clone::Clone for PromptBox<'a> {
-    fn clone(&self) -> PromptBox<'a> {
+impl clone::Clone for PromptBox {
+    fn clone(&self) -> PromptBox {
         PromptBox {
             color: self.color,
             text: self.text.clone(),
@@ -45,28 +47,30 @@ impl<'a> clone::Clone for PromptBox<'a> {
     }
 }
 
-impl<'a> fmt::Show for PromptBox<'a> {
+impl fmt::Show for PromptBox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}{}", if self.is_bold { bcol(self.color) } else { col(self.color) }, self.text, reset())
     }
 }
 
-struct PromptLine<'a> {
+struct PromptLine {
     level: int,
     line_type: PromptLineType,
-    parts: Vec<PromptBox<'a>>,
+    parts: Vec<PromptBox>,
 }
 
-impl<'a> PromptLine<'a> {
-    fn new() -> PromptLine<'a> {
+impl PromptLine {
+    fn new() -> PromptLine {
         PromptLine {
             level: 0,
             line_type: PromptLineType::Boxed,
             parts: Vec::new(),
         }
     }
+}
 
-    fn clone(&self) -> PromptLine<'a> {
+impl clone::Clone for PromptLine {
+    fn clone(&self) -> PromptLine {
         PromptLine {
             level: self.level,
             line_type: self.line_type,
@@ -100,13 +104,13 @@ fn get_line(flags: int) -> char {
 fn trail_off() -> String {
     let mut retval = String::new();
     for _ in range(0i,10i) {
-        retval = retval + format!("{}", get_line(LEFT|RIGHT));
+        retval = format!("{}{}", retval, get_line(LEFT|RIGHT));
     }
     retval
 }
 
-impl<'a> PromptBuffer<'a> {
-    pub fn new() -> PromptBuffer<'a> {
+impl PromptBuffer {
+    pub fn new() -> PromptBuffer {
         PromptBuffer {
             lines: Vec::new(),
             current_line: PromptLine::new()

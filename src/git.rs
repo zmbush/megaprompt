@@ -2,9 +2,66 @@ extern crate git2;
 
 use prompt_buffer;
 use prompt_buffer::PromptBuffer;
-use git2::{Repository, Error, FileState};
-use std::os;
+use git2::{Repository, Error, StatusOptions, STATUS_WT_NEW};
+use std::{os, fmt};
 use term::color;
+
+enum StatusTypes {
+    New,
+    Modified,
+    Deleted,
+    Renamed,
+    TypeChange,
+    Untracked,
+    Clean
+}
+
+impl fmt::Show for StatusTypes {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match *self {
+            StatusTypes::New => "A",
+            StatusTypes::Modified => "M",
+            StatusTypes::Deleted => "D",
+            StatusTypes::Renamed => "R",
+            StatusTypes::TypeChange => "T",
+            StatusTypes::Untracked => "?",
+            StatusTypes::Clean => " "
+        })
+    }
+}
+
+struct GitStatus {
+    index: StatusTypes,
+    workdir: StatusTypes
+}
+
+impl GitStatus {
+    fn new(f: git2::Status) -> GitStatus {
+        GitStatus {
+            index:
+                     if f.contains(git2::STATUS_INDEX_NEW) { StatusTypes::New }
+                else if f.contains(git2::STATUS_INDEX_MODIFIED) { StatusTypes::Modified }
+                else if f.contains(git2::STATUS_INDEX_DELETED) { StatusTypes::Deleted }
+                else if f.contains(git2::STATUS_INDEX_RENAMED) { StatusTypes::Renamed }
+                else if f.contains(git2::STATUS_INDEX_TYPECHANGE) { StatusTypes::TypeChange }
+                else if f.contains(git2::STATUS_WT_NEW) { StatusTypes::Untracked }
+                else { StatusTypes::Clean },
+            workdir:
+                     if f.contains(git2::STATUS_WT_NEW) { StatusTypes::Untracked }
+                else if f.contains(git2::STATUS_WT_MODIFIED) { StatusTypes::Modified }
+                else if f.contains(git2::STATUS_WT_DELETED) { StatusTypes::Deleted }
+                else if f.contains(git2::STATUS_WT_RENAMED) { StatusTypes::Renamed }
+                else if f.contains(git2::STATUS_WT_TYPECHANGE) { StatusTypes::TypeChange }
+                else { StatusTypes::Clean },
+        }
+    }
+}
+
+impl fmt::Show for GitStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}", self.index, self.workdir)
+    }
+}
 
 fn get_git() -> Result<Repository, Error> {
     let path = os::make_absolute(&Path::new(".")).unwrap();
@@ -12,27 +69,33 @@ fn get_git() -> Result<Repository, Error> {
 }
 
 fn status(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
-    let st = repo.statuses();
+    let st = repo.statuses(Some(StatusOptions::new()
+        .include_untracked(true)
+        .renames_head_to_index(true)
+    ));
     match st {
         Ok(statuses) => {
+            if statuses.len() <= 0 { return false }
+
             buffer.colored_block("Git Status".to_string(), color::CYAN);
             buffer.finish_line();
             for stat in statuses.iter() {
-                if !stat.is_ignored {
-                    buffer.make_free();
-                    buffer.indent();
-                    let val = format!("{}", stat);
+                buffer.make_free();
+                buffer.indent();
 
-                    match stat.indexed_state {
-                        FileState::Clean => buffer.colored_block(val, file_state_color(stat.working_state)),
-                        _ => match stat.working_state {
-                            FileState::Clean | FileState::Untracked => buffer.bold_colored_block(val, file_state_color(stat.indexed_state)),
-                            _ => buffer.bold_colored_block(val, color::RED)
-                        }
+                let status = GitStatus::new(stat.status());
+                let val = format!("{} {}", status, stat.path().unwrap().to_string());
+
+                match status.index {
+                    StatusTypes::Clean => buffer.colored_block(val, file_state_color(status.workdir)),
+                    _ => match status.workdir {
+                        StatusTypes::Clean | StatusTypes::Untracked =>
+                            buffer.bold_colored_block(val, file_state_color(status.index)),
+                        _ => buffer.bold_colored_block(val, color::RED)
                     }
-
-                    buffer.finish_line();
                 }
+
+                buffer.finish_line();
             }
 
             return true
@@ -40,19 +103,19 @@ fn status(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
         _ => { return false }
     }
 
-    fn file_state_color(state: FileState) -> u16 {
+    fn file_state_color(state: StatusTypes) -> u16 {
         match state {
-            FileState::Clean | FileState::Untracked => color::WHITE,
-            FileState::Deleted => color::RED,
-            FileState::Modified => color::BLUE,
-            FileState::New => color::GREEN,
-            FileState::Renamed => color::CYAN,
-            FileState::TypeChange => color::YELLOW,
+            StatusTypes::Clean | StatusTypes::Untracked => color::WHITE,
+            StatusTypes::Deleted => color::RED,
+            StatusTypes::Modified => color::BLUE,
+            StatusTypes::New => color::GREEN,
+            StatusTypes::Renamed => color::CYAN,
+            StatusTypes::TypeChange => color::YELLOW,
         }
     }
 }
 
-fn git_branch(repo: &Repository) -> Result<Vec<&str>, &str> {
+fn git_branch(repo: &Repository) -> Result<Vec<String>, String> {
     let mut branches = repo.branches(None).ok().expect("Unable to load branches");
 
     for (mut branch, _) in branches {
@@ -66,7 +129,10 @@ fn git_branch(repo: &Repository) -> Result<Vec<&str>, &str> {
 
         match name {
             Ok(n) => match n {
-                Some(value) => result.push(value.clone()),
+                Some(value) => {
+                    println!("{}", &value);
+                    result.push(value.to_string())
+                },
                 None => {}
             },
             Err(_) => {}
@@ -76,7 +142,7 @@ fn git_branch(repo: &Repository) -> Result<Vec<&str>, &str> {
             Ok(upstream) => {
                 match upstream.name() {
                     Ok(n) => match n {
-                        Some(value) => result.push(value.clone()),
+                        Some(value) => result.push(value.to_string()),
                         None => {}
                     },
                     Err(_) => {}
@@ -88,19 +154,35 @@ fn git_branch(repo: &Repository) -> Result<Vec<&str>, &str> {
         return Ok(result);
     }
 
-    return Err("No active branch");
+    match repo.head() {
+        Ok(r) => match repo.find_object(r.target().unwrap(), None) {
+            Ok(obj) => {
+                let sid = obj.short_id().ok().unwrap();
+                let s = sid.as_str();
+                let short_id = s.unwrap();
+                println!("{}", short_id);
+                let mut retval = Vec::new();
+                retval.push(format!("{}", short_id));
+                retval.push("?".to_string());
+                println!("{}", retval);
+                Ok(retval)
+            },
+            _ => Err("BOOT".to_string())
+        },
+        Err(_) => Err("No active branch".to_string())
+    }
 }
 
 fn outgoing(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
-    let upstream = git_branch(repo).ok().unwrap().as_slice()[1];
-    let revspec = match repo.revparse(upstream) {
+    let branches = git_branch(repo).ok().unwrap();
+    println!("branches => {}", branches);
+    if branches.len() <= 1 { return false }
+
+    let revspec = match repo.refname_to_id("HEAD") {
         Ok(rs) => rs,
-        Err(e) => {
-            println!("Err-> {}", e);
-            return false
-        }
+        _ => return false
     };
-    println!("rev -> {}", revspec.from().unwrap().short_id().ok().unwrap().as_str());
+    println!("rev -> {}", revspec);
     return false;
 }
 
@@ -114,8 +196,10 @@ fn end(buffer: &mut PromptBuffer, repo: &Repository, indented: bool) {
             } else if b.len() <= 1 {
                 buffer.colored_block(b[0].to_string(), color::CYAN);
             } else if b.len() >= 2 {
-                let branch = b[0];
-                let remote_branch = b[1];
+                println!("BARD {}", b[0]);
+                let branch = &b[0];
+                let remote_branch = &b[1];
+                println!("Bindle {}{}", branch, "hello");
                 buffer.colored_block(format!("{}{} -> {}{}",
                     branch,
                     prompt_buffer::reset(),
