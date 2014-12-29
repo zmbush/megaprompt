@@ -77,25 +77,26 @@ fn status(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
         Ok(statuses) => {
             if statuses.len() <= 0 { return false }
 
-            buffer.colored_block(&"Git Status", color::CYAN);
-            buffer.finish_line();
+            buffer.start_boxed()
+                .colored_block(&"Git Status", color::CYAN)
+                .finish();
+
             for stat in statuses.iter() {
-                buffer.make_free();
-                buffer.indent();
+                let mut line = buffer.start_free();
 
                 let status = GitStatus::new(stat.status());
                 let val = format!("{} {}", status, stat.path().unwrap());
 
                 match status.index {
-                    StatusTypes::Clean => buffer.colored_block(&val, file_state_color(status.workdir)),
+                    StatusTypes::Clean => line.colored_block(&val, file_state_color(status.workdir)),
                     _ => match status.workdir {
                         StatusTypes::Clean | StatusTypes::Untracked =>
-                            buffer.bold_colored_block(&val, file_state_color(status.index)),
-                        _ => buffer.bold_colored_block(&val, color::RED)
+                            line.bold_colored_block(&val, file_state_color(status.index)),
+                        _ => line.bold_colored_block(&val, color::RED)
                     }
-                }
+                };
 
-                buffer.finish_line();
+                line.indent().finish();
             }
 
             return true
@@ -197,22 +198,24 @@ fn do_outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -
         repo.find_commit(id).ok()
     }) {
         if !log_shown {
-            buffer.colored_block(&"Git Log", color::CYAN);
-            if has_status { buffer.indent(); }
-            buffer.finish_line();
+            buffer.start_boxed()
+                .colored_block(&"Git Log", color::CYAN)
+                .indent_by(if has_status { 1 } else { 0 })
+                .finish();
             log_shown = true;
         }
-        buffer.make_free();
-        buffer.indent();
-        buffer.colored_block(&format!("{} {}",
-            String::from_utf8_lossy(
-                try!(try!(repo.find_object(commit.id(), None)).short_id()).get()
-            ),
-            String::from_utf8_lossy(match commit.summary_bytes() {
-                Some(b) => b,
-                None => continue
-            })), color::WHITE);
-        buffer.finish_line();
+
+        buffer.start_free()
+            .indent()
+            .colored_block(&format!("{} {}",
+                String::from_utf8_lossy(
+                    try!(try!(repo.find_object(commit.id(), None)).short_id()).get()
+                ),
+                String::from_utf8_lossy(match commit.summary_bytes() {
+                    Some(b) => b,
+                    None => continue
+                })), color::WHITE)
+            .finish();
     }
 
     return Ok(log_shown);
@@ -221,22 +224,20 @@ fn do_outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -
 fn end(buffer: &mut PromptBuffer, repo: &Repository, indented: bool) {
     match git_branch(repo) {
         Ok(branches) => {
-            buffer.colored_block(
-                &match (branches.name, branches.upstream) {
-                    (None, None) => "New Repository".to_string(),
-                    (Some(name), None) => name,
-                    (Some(name), Some(remote)) => format!("{}{} -> {}{}",
-                        name,
-                        prompt_buffer::reset(),
-                        prompt_buffer::col(color::MAGENTA),
-                        remote),
-                    _ => "Unknown branch state".to_string()
-                }, color::CYAN);
-            if indented {
-                buffer.indent();
-            }
-
-            buffer.finish_line();
+            buffer.start_boxed()
+                .colored_block(
+                    &match (branches.name, branches.upstream) {
+                        (None, None) => "New Repository".to_string(),
+                        (Some(name), None) => name,
+                        (Some(name), Some(remote)) => format!("{}{} -> {}{}",
+                            name,
+                            prompt_buffer::reset(),
+                            prompt_buffer::col(color::MAGENTA),
+                            remote),
+                        _ => "Unknown branch state".to_string()
+                    }, color::CYAN)
+                .indent_by(if indented { 1 } else { 0 })
+                .finish();
         },
         Err(_) => {}
     };

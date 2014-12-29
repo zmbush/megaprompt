@@ -20,8 +20,7 @@ pub fn reset() -> String{
 }
 
 pub struct PromptBuffer {
-    lines: Vec<PromptLine>,
-    current_line: PromptLine
+    lines: Vec<PromptLine>
 }
 
 enum PromptLineType {
@@ -54,7 +53,7 @@ impl fmt::Show for PromptBox {
 }
 
 struct PromptLine {
-    level: int,
+    level: u8,
     line_type: PromptLineType,
     parts: Vec<PromptBox>,
 }
@@ -66,6 +65,12 @@ impl PromptLine {
             line_type: PromptLineType::Boxed,
             parts: Vec::new(),
         }
+    }
+
+    fn new_free() -> PromptLine {
+        let mut r = PromptLine::new();
+        r.line_type = PromptLineType::Free;
+        r
     }
 }
 
@@ -109,61 +114,81 @@ fn trail_off() -> String {
     retval
 }
 
-impl PromptBuffer {
-    pub fn new() -> PromptBuffer {
-        PromptBuffer {
-            lines: Vec::new(),
-            current_line: PromptLine::new()
-        }
+struct PromptLineBuilder<'prompt_buffer> {
+    prompt_buffer: &'prompt_buffer mut PromptBuffer,
+    line: PromptLine
+}
+
+impl<'prompt_buffer> PromptLineBuilder<'prompt_buffer> {
+    pub fn indent_by(&mut self, amt: u8) -> &mut PromptLineBuilder<'prompt_buffer> {
+        self.line.level += amt;
+
+        self
     }
 
-    pub fn start(&mut self) {
-        self.block(&"\\w");
-        self.block(&"\\H");
-        self.finish_line();
+    pub fn indent(&mut self) -> &mut PromptLineBuilder<'prompt_buffer> {
+        self.indent_by(1)
     }
 
-    pub fn add_plugin(&mut self, plugin: |&mut PromptBuffer|) {
-        plugin(self);
-    }
-
-    fn add_block(&mut self, s: &fmt::Show, c: u16, bold: bool) {
-        self.current_line.parts.push(
+    fn add_block(&mut self, s: &fmt::Show, c: u16, bold: bool) -> &mut PromptLineBuilder<'prompt_buffer> {
+        self.line.parts.push(
             PromptBox {
                 color: c,
                 text: format!("{}", s),
                 is_bold: bold
             }
         );
+
+        self
     }
 
-    pub fn block(&mut self, s: &fmt::Show) {
-        self.add_block(s, color::MAGENTA, false);
+    pub fn block(&mut self, s: &fmt::Show) -> &mut PromptLineBuilder<'prompt_buffer> {
+        self.add_block(s, color::MAGENTA, false)
     }
 
-    pub fn colored_block(&mut self, s: &fmt::Show, c: u16) {
-        self.add_block(s, c, false);
+    pub fn colored_block(&mut self, s: &fmt::Show, c: u16) -> &mut PromptLineBuilder<'prompt_buffer> {
+        self.add_block(s, c, false)
     }
 
-    pub fn bold_colored_block(&mut self, s: &fmt::Show, c: u16) {
-        self.add_block(s, c, true);
+    pub fn bold_colored_block(&mut self, s: &fmt::Show, c: u16) -> &mut PromptLineBuilder<'prompt_buffer> {
+        self.add_block(s, c, true)
     }
 
-    pub fn make_free(&mut self) {
-        self.current_line.line_type = PromptLineType::Free;
+    pub fn finish(&mut self) {
+        self.prompt_buffer.lines.push(self.line.clone());
+    }
+}
+
+impl PromptBuffer {
+    pub fn new() -> PromptBuffer {
+        PromptBuffer {
+            lines: Vec::new()
+        }
     }
 
-    pub fn indent_by(&mut self, amt: int) {
-        self.current_line.level += amt;
+    pub fn start(&mut self) {
+        self.start_boxed()
+            .block(&"\\w")
+            .block(&"\\H")
+            .finish();
     }
 
-    pub fn indent(&mut self) {
-        self.indent_by(1);
+    pub fn add_plugin(&mut self, plugin: |&mut PromptBuffer|) {
+        plugin(self);
     }
 
-    pub fn finish_line(&mut self) {
-        self.lines.push(self.current_line.clone());
-        self.current_line = PromptLine::new();
+    pub fn start_boxed(&mut self) -> PromptLineBuilder {
+        PromptLineBuilder {
+            prompt_buffer: self,
+            line: PromptLine::new()
+        }
+    }
+
+    pub fn start_free(&mut self) -> PromptLineBuilder {
+        PromptLineBuilder {
+            prompt_buffer: self,
+            line: PromptLine::new_free()
+        }
     }
 
     pub fn print(&self) {
