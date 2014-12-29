@@ -3,20 +3,20 @@ use std::cmp;
 use std::clone;
 use term::color;
 
-fn col_cmd(c: String) -> String{
+fn col_cmd(c: &fmt::Show) -> String{
     format!("\\[{}[{}\\]", '\x1B', c)
 }
 
 pub fn col(c: u16) -> String {
-    col_cmd(format!("{}m", c + 30))
+    col_cmd(&format!("{}m", c + 30))
 }
 
 fn bcol(c: u16) -> String{
-    col_cmd(format!("1;{}m", c + 30))
+    col_cmd(&format!("1;{}m", c + 30))
 }
 
 pub fn reset() -> String{
-    col_cmd("0m".to_string())
+    col_cmd(&"0m")
 }
 
 pub struct PromptBuffer {

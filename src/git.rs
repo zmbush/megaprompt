@@ -115,7 +115,12 @@ fn status(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
     }
 }
 
-fn git_branch(repo: &Repository) -> Result<Vec<String>, String> {
+struct BranchInfo {
+    name: Option<String>,
+    upstream: Option<String>
+}
+
+fn git_branch(repo: &Repository) -> Result<BranchInfo, git2::Error> {
     let mut branches = repo.branches(None).ok().expect("Unable to load branches");
 
     for (mut branch, _) in branches {
@@ -123,34 +128,28 @@ fn git_branch(repo: &Repository) -> Result<Vec<String>, String> {
             continue;
         }
 
-        let mut result = Vec::new();
-
         let name = branch.name();
-
-        match name {
-            Ok(n) => match n {
-                Some(value) => {
-                    result.push(value.to_string())
+        return Ok(BranchInfo {
+            name: match name {
+                Ok(n) => match n {
+                    Some(value) => Some(value.to_string()),
+                    _ => None
                 },
-                None => {}
+                _ => None
             },
-            Err(_) => {}
-        };
-
-        match branch.upstream() {
-            Ok(upstream) => {
-                match upstream.name() {
-                    Ok(n) => match n {
-                        Some(value) => result.push(value.to_string()),
-                        None => {}
-                    },
-                    Err(_) => {}
-                }
+            upstream: match branch.upstream() {
+                Ok(upstream) => {
+                    match upstream.name() {
+                        Ok(n) => match n {
+                            Some(value) => Some(value.to_string()),
+                            _ => None
+                        },
+                        _ => None
+                    }
+                },
+                Err(_) => None
             }
-            Err(_) => {}
-        };
-
-        return Ok(result);
+        });
     }
 
     match repo.head() {
@@ -159,49 +158,80 @@ fn git_branch(repo: &Repository) -> Result<Vec<String>, String> {
                 let sid = obj.short_id().ok().unwrap();
                 let s = sid.as_str();
                 let short_id = s.unwrap();
-                let mut retval = Vec::new();
-                retval.push(format!("{}", short_id));
-                retval.push("?".to_string());
-                Ok(retval)
+                Ok(BranchInfo {
+                    name: Some(format!("{}", short_id)),
+                    upstream: Some("?".to_string())
+                })
             },
-            _ => Err("BOOT".to_string())
+            Err(e) => Err(e)
         },
-        Err(_) => Err("No active branch".to_string())
+        Err(e) => Err(e)
     }
 }
 
-fn outgoing(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
-    let branches = git_branch(repo).ok().unwrap();
-    if branches.len() <= 1 { return false }
+fn outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -> bool {
+    match do_outgoing(buffer, repo, has_status) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Error from outgoing: {}", e);
+            false
+        }
+    }
+}
 
-    let revspec = match repo.refname_to_id("HEAD") {
-        Ok(rs) => rs,
-        _ => return false
-    };
-    return false;
+fn do_outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -> Result<bool, git2::Error> {
+    let branches = try!(git_branch(repo));
+
+    let mut revwalk = try!(repo.revwalk());
+    revwalk.set_sorting(git2::SORT_REVERSE);
+
+    let from = try!(repo.revparse_single(branches.upstream.unwrap().as_slice())).id();
+    let to = try!(repo.revparse_single(branches.name.unwrap().as_slice())).id();
+
+    try!(revwalk.push(to));
+    try!(revwalk.hide(from));
+
+    let mut log_shown = false;
+
+    for mut commit in revwalk.filter_map(|id| {
+        repo.find_commit(id).ok()
+    }) {
+        if !log_shown {
+            buffer.colored_block(&"Git Log", color::CYAN);
+            if has_status { buffer.indent(); }
+            buffer.finish_line();
+            log_shown = true;
+        }
+        buffer.make_free();
+        buffer.indent();
+        buffer.colored_block(&format!("{} {}",
+            String::from_utf8_lossy(
+                try!(try!(repo.find_object(commit.id(), None)).short_id()).get()
+            ),
+            String::from_utf8_lossy(match commit.summary_bytes() {
+                Some(b) => b,
+                None => continue
+            })), color::WHITE);
+        buffer.finish_line();
+    }
+
+    return Ok(log_shown);
 }
 
 fn end(buffer: &mut PromptBuffer, repo: &Repository, indented: bool) {
     match git_branch(repo) {
         Ok(branches) => {
-            let b = branches.as_slice();
-
-            if b.len() <= 0 {
-                buffer.colored_block(&"New Repository", color::CYAN);
-            } else if b.len() <= 1 {
-                buffer.colored_block(&b[0], color::CYAN);
-            } else if b.len() >= 2 {
-                let branch = &b[0];
-                let remote_branch = &b[1];
-                buffer.colored_block(&format!("{}{} -> {}{}",
-                    branch,
-                    prompt_buffer::reset(),
-                    prompt_buffer::col(color::MAGENTA),
-                    remote_branch), color::CYAN);
-            } else {
-                buffer.colored_block(&"What???", color::RED);
-            }
-
+            buffer.colored_block(
+                &match (branches.name, branches.upstream) {
+                    (None, None) => "New Repository".to_string(),
+                    (Some(name), None) => name,
+                    (Some(name), Some(remote)) => format!("{}{} -> {}{}",
+                        name,
+                        prompt_buffer::reset(),
+                        prompt_buffer::col(color::MAGENTA),
+                        remote),
+                    _ => "Unknown branch state".to_string()
+                }, color::CYAN);
             if indented {
                 buffer.indent();
             }
@@ -217,7 +247,7 @@ pub fn plugin(buffer: &mut PromptBuffer) {
     if repo.is_ok() {
         let r = repo.ok().unwrap();
         let st = status(buffer, &r);
-        let out = outgoing(buffer, &r);
+        let out = outgoing(buffer, &r, st);
         end(buffer, &r, st || out);
     }
 }
