@@ -77,21 +77,21 @@ fn status(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
         Ok(statuses) => {
             if statuses.len() <= 0 { return false }
 
-            buffer.colored_block("Git Status".to_string(), color::CYAN);
+            buffer.colored_block(&"Git Status", color::CYAN);
             buffer.finish_line();
             for stat in statuses.iter() {
                 buffer.make_free();
                 buffer.indent();
 
                 let status = GitStatus::new(stat.status());
-                let val = format!("{} {}", status, stat.path().unwrap().to_string());
+                let val = format!("{} {}", status, stat.path().unwrap());
 
                 match status.index {
-                    StatusTypes::Clean => buffer.colored_block(val, file_state_color(status.workdir)),
+                    StatusTypes::Clean => buffer.colored_block(&val, file_state_color(status.workdir)),
                     _ => match status.workdir {
                         StatusTypes::Clean | StatusTypes::Untracked =>
-                            buffer.bold_colored_block(val, file_state_color(status.index)),
-                        _ => buffer.bold_colored_block(val, color::RED)
+                            buffer.bold_colored_block(&val, file_state_color(status.index)),
+                        _ => buffer.bold_colored_block(&val, color::RED)
                     }
                 }
 
@@ -130,7 +130,6 @@ fn git_branch(repo: &Repository) -> Result<Vec<String>, String> {
         match name {
             Ok(n) => match n {
                 Some(value) => {
-                    println!("{}", &value);
                     result.push(value.to_string())
                 },
                 None => {}
@@ -160,11 +159,9 @@ fn git_branch(repo: &Repository) -> Result<Vec<String>, String> {
                 let sid = obj.short_id().ok().unwrap();
                 let s = sid.as_str();
                 let short_id = s.unwrap();
-                println!("{}", short_id);
                 let mut retval = Vec::new();
                 retval.push(format!("{}", short_id));
                 retval.push("?".to_string());
-                println!("{}", retval);
                 Ok(retval)
             },
             _ => Err("BOOT".to_string())
@@ -175,14 +172,12 @@ fn git_branch(repo: &Repository) -> Result<Vec<String>, String> {
 
 fn outgoing(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
     let branches = git_branch(repo).ok().unwrap();
-    println!("branches => {}", branches);
     if branches.len() <= 1 { return false }
 
     let revspec = match repo.refname_to_id("HEAD") {
         Ok(rs) => rs,
         _ => return false
     };
-    println!("rev -> {}", revspec);
     return false;
 }
 
@@ -192,21 +187,19 @@ fn end(buffer: &mut PromptBuffer, repo: &Repository, indented: bool) {
             let b = branches.as_slice();
 
             if b.len() <= 0 {
-                buffer.colored_block("New Repository".to_string(), color::CYAN);
+                buffer.colored_block(&"New Repository", color::CYAN);
             } else if b.len() <= 1 {
-                buffer.colored_block(b[0].to_string(), color::CYAN);
+                buffer.colored_block(&b[0], color::CYAN);
             } else if b.len() >= 2 {
-                println!("BARD {}", b[0]);
                 let branch = &b[0];
                 let remote_branch = &b[1];
-                println!("Bindle {}{}", branch, "hello");
-                buffer.colored_block(format!("{}{} -> {}{}",
+                buffer.colored_block(&format!("{}{} -> {}{}",
                     branch,
                     prompt_buffer::reset(),
                     prompt_buffer::col(color::MAGENTA),
                     remote_branch), color::CYAN);
             } else {
-                buffer.colored_block("What???".to_string(), color::RED);
+                buffer.colored_block(&"What???", color::RED);
             }
 
             if indented {

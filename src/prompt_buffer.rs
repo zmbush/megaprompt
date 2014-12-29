@@ -118,8 +118,8 @@ impl PromptBuffer {
     }
 
     pub fn start(&mut self) {
-        self.block("\\w".to_string());
-        self.block("\\H".to_string());
+        self.block(&"\\w");
+        self.block(&"\\H");
         self.finish_line();
     }
 
@@ -127,25 +127,25 @@ impl PromptBuffer {
         plugin(self);
     }
 
-    fn add_block(&mut self, s: String, c: u16, bold: bool) {
+    fn add_block(&mut self, s: &fmt::Show, c: u16, bold: bool) {
         self.current_line.parts.push(
             PromptBox {
                 color: c,
-                text: s.clone(),
+                text: format!("{}", s),
                 is_bold: bold
             }
         );
     }
 
-    pub fn block(&mut self, s: String) {
+    pub fn block(&mut self, s: &fmt::Show) {
         self.add_block(s, color::MAGENTA, false);
     }
 
-    pub fn colored_block(&mut self, s: String, c: u16) {
+    pub fn colored_block(&mut self, s: &fmt::Show, c: u16) {
         self.add_block(s, c, false);
     }
 
-    pub fn bold_colored_block(&mut self, s: String, c: u16) {
+    pub fn bold_colored_block(&mut self, s: &fmt::Show, c: u16) {
         self.add_block(s, c, true);
     }
 
