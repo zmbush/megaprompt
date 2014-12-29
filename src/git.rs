@@ -194,12 +194,12 @@ fn do_outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -
 
     let mut log_shown = false;
 
-    for mut commit in revwalk.filter_map(|id| {
-        repo.find_commit(id).ok()
-    }) {
+    for id in revwalk {
+        let mut commit = try!(repo.find_commit(id));
+
         if !log_shown {
             buffer.start_boxed()
-                .colored_block(&"Git Log", color::CYAN)
+                .colored_block(&"Git Outgoing", color::CYAN)
                 .indent_by(if has_status { 1 } else { 0 })
                 .finish();
             log_shown = true;
