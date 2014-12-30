@@ -1,7 +1,7 @@
 extern crate git2;
 
 use prompt_buffer;
-use prompt_buffer::PromptBuffer;
+use prompt_buffer::{PromptLine, PromptBufferPlugin, PromptLineBuilder};
 use git2::{Repository, Error, StatusOptions, STATUS_WT_NEW};
 use std::{os, fmt};
 use term::color;
@@ -63,31 +63,67 @@ impl fmt::Show for GitStatus {
     }
 }
 
-fn get_git() -> Result<Repository, Error> {
-    let path = os::make_absolute(&Path::new(".")).unwrap();
-    return Repository::discover(&path);
+fn get_git(path: &Path) -> Option<Repository> {
+    match Repository::discover(path) {
+        Ok(repo) => Some(repo),
+        _ => None
+    }
 }
 
-fn status(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
+fn status(buffer: &mut Vec<PromptLine>, path: &Path, repo: &Repository) -> bool {
     let st = repo.statuses(Some(StatusOptions::new()
         .include_untracked(true)
         .renames_head_to_index(true)
     ));
+
+    let make_path_relative = |current: Path| {
+        let mut fullpath = repo.workdir().unwrap();
+        fullpath.push(current);
+
+        fullpath.path_relative_from(path).unwrap()
+    };
+
     match st {
         Ok(statuses) => {
             if statuses.len() <= 0 { return false }
 
-            buffer.start_boxed()
+            buffer.push(PromptLineBuilder::new()
                 .colored_block(&"Git Status", color::CYAN)
-                .finish();
+                .build());
 
             for stat in statuses.iter() {
-                let mut line = buffer.start_free();
+                let mut line = PromptLineBuilder::new_free();
 
                 let status = GitStatus::new(stat.status());
-                let val = format!("{} {}", status, stat.path().unwrap());
 
-                match status.index {
+                let diff = match stat.head_to_index() {
+                    Some(delta) => Some(delta),
+                    None => match stat.index_to_workdir() {
+                        Some(delta) => Some(delta),
+                        None => None
+                    }
+                };
+
+                if diff.is_some() {
+                } else {
+                }
+
+                let val = format!("{} {}", status, if diff.is_some() {
+                    let delta = diff.unwrap();
+
+                    let old = make_path_relative(delta.old_file().path().unwrap());
+                    let new = make_path_relative(delta.new_file().path().unwrap());
+
+                    if old != new {
+                        format!("{} -> {}", old.display(), new.display())
+                    } else {
+                        format!("{}", old.display())
+                    }
+                } else {
+                    format!("{}", Path::new(stat.path().unwrap()).display())
+                });
+
+                line = match status.index {
                     StatusTypes::Clean => line.colored_block(&val, file_state_color(status.workdir)),
                     _ => match status.workdir {
                         StatusTypes::Clean | StatusTypes::Untracked =>
@@ -96,7 +132,7 @@ fn status(buffer: &mut PromptBuffer, repo: &Repository) -> bool {
                     }
                 };
 
-                line.indent().finish();
+                buffer.push(line.indent().build());
             }
 
             return true
@@ -170,7 +206,7 @@ fn git_branch(repo: &Repository) -> Result<BranchInfo, git2::Error> {
     }
 }
 
-fn outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -> bool {
+fn outgoing(buffer: &mut Vec<PromptLine>, repo: &Repository, has_status: bool) -> bool {
     match do_outgoing(buffer, repo, has_status) {
         Ok(r) => r,
         Err(e) => {
@@ -180,7 +216,7 @@ fn outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -> b
     }
 }
 
-fn do_outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -> Result<bool, git2::Error> {
+fn do_outgoing(buffer: &mut Vec<PromptLine>, repo: &Repository, has_status: bool) -> Result<bool, git2::Error> {
     let branches = try!(git_branch(repo));
 
     let mut revwalk = try!(repo.revwalk());
@@ -198,14 +234,14 @@ fn do_outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -
         let mut commit = try!(repo.find_commit(id));
 
         if !log_shown {
-            buffer.start_boxed()
+            buffer.push(PromptLineBuilder::new()
                 .colored_block(&"Git Outgoing", color::CYAN)
                 .indent_by(if has_status { 1 } else { 0 })
-                .finish();
+                .build());
             log_shown = true;
         }
 
-        buffer.start_free()
+        buffer.push(PromptLineBuilder::new_free()
             .indent()
             .colored_block(&format!("{} {}",
                 String::from_utf8_lossy(
@@ -215,16 +251,16 @@ fn do_outgoing(buffer: &mut PromptBuffer, repo: &Repository, has_status: bool) -
                     Some(b) => b,
                     None => continue
                 })), color::WHITE)
-            .finish();
+            .build());
     }
 
     return Ok(log_shown);
 }
 
-fn end(buffer: &mut PromptBuffer, repo: &Repository, indented: bool) {
+fn end(buffer: &mut Vec<PromptLine>, repo: &Repository, indented: bool) {
     match git_branch(repo) {
         Ok(branches) => {
-            buffer.start_boxed()
+            buffer.push(PromptLineBuilder::new()
                 .colored_block(
                     &match (branches.name, branches.upstream) {
                         (None, None) => "New Repository".to_string(),
@@ -237,18 +273,40 @@ fn end(buffer: &mut PromptBuffer, repo: &Repository, indented: bool) {
                         _ => "Unknown branch state".to_string()
                     }, color::CYAN)
                 .indent_by(if indented { 1 } else { 0 })
-                .finish();
+                .build());
         },
         Err(_) => {}
     };
 }
 
-pub fn plugin(buffer: &mut PromptBuffer) {
-    let repo = get_git();
-    if repo.is_ok() {
-        let r = repo.ok().unwrap();
-        let st = status(buffer, &r);
-        let out = outgoing(buffer, &r, st);
-        end(buffer, &r, st || out);
+pub struct GitPlugin {
+    repo: Option<Repository>,
+    path: Path
+}
+
+impl GitPlugin {
+    pub fn new() -> GitPlugin {
+        GitPlugin {
+            repo: None,
+            path: os::make_absolute(&Path::new(".")).unwrap()
+        }
+    }
+}
+
+impl PromptBufferPlugin for GitPlugin {
+    fn run(&mut self, path: &Path, lines: &mut Vec<PromptLine>) {
+        if self.path != *path || self.repo.is_none() {
+            self.path = path.clone();
+            self.repo = get_git(&self.path);
+        }
+
+        match self.repo {
+            Some(ref r) => {
+                let st = status(lines, path, r);
+                let out = outgoing(lines, r, st);
+                end(lines, r, st || out);
+            },
+            _ => { }
+        }
     }
 }

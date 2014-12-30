@@ -1,6 +1,7 @@
 use std::fmt;
 use std::cmp;
 use std::clone;
+use std::os;
 use term::color;
 
 fn col_cmd(c: &fmt::Show) -> String{
@@ -19,8 +20,9 @@ pub fn reset() -> String{
     col_cmd(&"0m")
 }
 
-pub struct PromptBuffer {
-    lines: Vec<PromptLine>
+pub struct PromptBuffer<'a> {
+    plugins: Vec<Box<PromptBufferPlugin+'a>>,
+    path: Path
 }
 
 enum PromptLineType {
@@ -52,7 +54,7 @@ impl fmt::Show for PromptBox {
     }
 }
 
-struct PromptLine {
+pub struct PromptLine {
     level: u8,
     line_type: PromptLineType,
     parts: Vec<PromptBox>,
@@ -114,23 +116,34 @@ fn trail_off() -> String {
     retval
 }
 
-struct PromptLineBuilder<'prompt_buffer> {
-    prompt_buffer: &'prompt_buffer mut PromptBuffer,
+pub struct PromptLineBuilder {
     line: PromptLine
 }
 
-impl<'prompt_buffer> PromptLineBuilder<'prompt_buffer> {
-    pub fn indent_by(&mut self, amt: u8) -> &mut PromptLineBuilder<'prompt_buffer> {
+impl PromptLineBuilder {
+    pub fn new() -> PromptLineBuilder {
+        PromptLineBuilder {
+            line: PromptLine::new()
+        }
+    }
+
+    pub fn new_free() -> PromptLineBuilder {
+        PromptLineBuilder {
+            line: PromptLine::new_free()
+        }
+    }
+
+    pub fn indent_by(mut self, amt: u8) -> PromptLineBuilder {
         self.line.level += amt;
 
         self
     }
 
-    pub fn indent(&mut self) -> &mut PromptLineBuilder<'prompt_buffer> {
+    pub fn indent(self) -> PromptLineBuilder {
         self.indent_by(1)
     }
 
-    fn add_block(&mut self, s: &fmt::Show, c: u16, bold: bool) -> &mut PromptLineBuilder<'prompt_buffer> {
+    fn add_block(mut self, s: &fmt::Show, c: u16, bold: bool) -> PromptLineBuilder {
         self.line.parts.push(
             PromptBox {
                 color: c,
@@ -142,61 +155,62 @@ impl<'prompt_buffer> PromptLineBuilder<'prompt_buffer> {
         self
     }
 
-    pub fn block(&mut self, s: &fmt::Show) -> &mut PromptLineBuilder<'prompt_buffer> {
+    pub fn block(self, s: &fmt::Show) -> PromptLineBuilder {
         self.add_block(s, color::MAGENTA, false)
     }
 
-    pub fn colored_block(&mut self, s: &fmt::Show, c: u16) -> &mut PromptLineBuilder<'prompt_buffer> {
+    pub fn colored_block(self, s: &fmt::Show, c: u16) -> PromptLineBuilder {
         self.add_block(s, c, false)
     }
 
-    pub fn bold_colored_block(&mut self, s: &fmt::Show, c: u16) -> &mut PromptLineBuilder<'prompt_buffer> {
+    pub fn bold_colored_block(self, s: &fmt::Show, c: u16) -> PromptLineBuilder {
         self.add_block(s, c, true)
     }
 
-    pub fn finish(&mut self) {
-        self.prompt_buffer.lines.push(self.line.clone());
+    pub fn build(self) -> PromptLine {
+        self.line
     }
 }
 
-impl PromptBuffer {
-    pub fn new() -> PromptBuffer {
+impl<'a> PromptBuffer<'a> {
+    pub fn new() -> PromptBuffer<'a> {
         PromptBuffer {
-            lines: Vec::new()
+            plugins: Vec::new(),
+            path: os::make_absolute(&Path::new(".")).unwrap()
         }
     }
 
-    pub fn start(&mut self) {
-        self.start_boxed()
+    pub fn start(&self, lines: &mut Vec<PromptLine>) {
+        lines.push(PromptLineBuilder::new()
             .block(&"\\w")
             .block(&"\\H")
-            .finish();
+            .build());
     }
 
-    pub fn add_plugin(&mut self, plugin: |&mut PromptBuffer|) {
-        plugin(self);
+    pub fn add_plugin(&mut self, plugin: Box<PromptBufferPlugin+'a>) {
+        self.plugins.push(plugin);
     }
 
-    pub fn start_boxed(&mut self) -> PromptLineBuilder {
-        PromptLineBuilder {
-            prompt_buffer: self,
-            line: PromptLine::new()
+    pub fn set_path(&mut self, p: Path) {
+        self.path = p;
+    }
+
+    pub fn to_string(&mut self) -> String {
+        let mut retval = String::new();
+        let mut lines = Vec::new();
+
+        self.start(&mut lines);
+
+        let mut pl = self.plugins.as_mut_slice();
+        for i in range(0, pl.len()) {
+            pl[i].run(&self.path, &mut lines);
         }
-    }
 
-    pub fn start_free(&mut self) -> PromptLineBuilder {
-        PromptLineBuilder {
-            prompt_buffer: self,
-            line: PromptLine::new_free()
-        }
-    }
-
-    pub fn print(&self) {
-        for ix in range(0, self.lines.len()) {
-            let ref line = self.lines[ix];
+        for ix in range(0, lines.len()) {
+            let ref line = lines[ix];
             let current = line.level;
-            let (after, start, end) = if ix + 1 <self.lines.len() {
-                let a = self.lines[ix + 1].level;
+            let (after, start, end) = if ix + 1 < lines.len() {
+                let a = lines[ix + 1].level;
                 (a, cmp::min(current, a), cmp::max(current, a))
             } else {
                 (0, 0, current)
@@ -245,12 +259,21 @@ impl PromptBuffer {
                 _ => {}
             }
 
-            println!("{}", line_text);
+            retval = format!("{}{}\n", retval, line_text);
         }
-        println!("{}{}{} ", get_line(TOP|RIGHT), get_line(LEFT|RIGHT), PromptBox {
+
+        format!("{}{}{}{} ", retval, get_line(TOP|RIGHT), get_line(LEFT|RIGHT), PromptBox {
             text: "\\$".to_string(),
             color: color::RED,
             is_bold: false
-        });
+        })
     }
+
+    pub fn print(&mut self) {
+        println!("{}", self.to_string());
+    }
+}
+
+pub trait PromptBufferPlugin {
+    fn run(&mut self, path: &Path, lines: &mut Vec<PromptLine>);
 }
