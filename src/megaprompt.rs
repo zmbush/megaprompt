@@ -12,7 +12,9 @@ use std::io::{
     Listener,
     process,
     stdio,
+    timer
 };
+use std::time::Duration;
 use std::io::fs::PathExtensions;
 use std::io::net::pipe::{
     UnixStream,
@@ -31,11 +33,14 @@ fn get_prompt() -> PromptBuffer<'static> {
 }
 
 fn exe_changed() -> u64 {
-    let exe_path = Path::new(file!());
-
-    match exe_path.stat() {
-        Ok(s) => s.modified,
-        _ => 0u64
+    match os::self_exe_name() {
+        Some(exe_path) => {
+            match exe_path.stat() {
+                Ok(s) => s.modified,
+                _ => 0u64
+            }
+        },
+        None => 0u64
     }
 }
 
@@ -47,9 +52,10 @@ fn main() {
 
     let args = os::args();
     if args.len() > 1 { // Daemon process
-        let last_modified = exe_changed();
         stdio::set_stdout(box File::create(&stdout_path));
         stdio::set_stderr(box File::create(&stderr_path));
+
+        let last_modified = exe_changed();
 
         let mut p = get_prompt();
 
@@ -71,7 +77,7 @@ fn main() {
             write!(c, "{}", p.to_string()).unwrap();
 
             if last_modified != exe_changed() {
-                write!(c, "(restarting prompt daemon) ").unwrap();
+                write!(c, "♻  ").unwrap();
                 return;
             }
         }
@@ -105,6 +111,8 @@ fn main() {
                 println!("Spawned child {}", child.id());
 
                 child.forget();
+
+                timer::sleep(Duration::milliseconds(10));
             }
             _ => {}
         }
@@ -118,7 +126,7 @@ fn main() {
             Ok(stream) => stream
         };
 
-        stream.write_str(os::make_absolute(&Path::new(".")).unwrap().as_str().unwrap()).unwrap();
+        write!(&mut stream, "{}", os::make_absolute(&Path::new(".")).unwrap().display()).unwrap();
         stream.close_write().unwrap();
         println!("{}", stream.read_to_string().unwrap());
     }

@@ -104,23 +104,18 @@ fn status(buffer: &mut Vec<PromptLine>, path: &Path, repo: &Repository) -> bool 
                     }
                 };
 
-                if diff.is_some() {
-                } else {
-                }
+                let val = format!("{} {}", status, match diff {
+                    Some(delta) => {
+                        let old = make_path_relative(delta.old_file().path().unwrap());
+                        let new = make_path_relative(delta.new_file().path().unwrap());
 
-                let val = format!("{} {}", status, if diff.is_some() {
-                    let delta = diff.unwrap();
-
-                    let old = make_path_relative(delta.old_file().path().unwrap());
-                    let new = make_path_relative(delta.new_file().path().unwrap());
-
-                    if old != new {
-                        format!("{} -> {}", old.display(), new.display())
-                    } else {
-                        format!("{}", old.display())
-                    }
-                } else {
-                    format!("{}", Path::new(stat.path().unwrap()).display())
+                        if old != new {
+                            format!("{} -> {}", old.display(), new.display())
+                        } else {
+                            format!("{}", old.display())
+                        }
+                    },
+                    None => format!("{}", Path::new(stat.path().unwrap()).display())
                 });
 
                 line = match status.index {
