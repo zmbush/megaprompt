@@ -254,14 +254,15 @@ impl GitPlugin {
 
             buffer.push(PromptLineBuilder::new_free()
                 .indent()
-                .colored_block(&format!("{} {}",
+                .block(&format!("{}{} {}",
+                    prompt_buffer::reset(),
                     String::from_utf8_lossy(
                         try!(try!(repo.find_object(commit.id(), None)).short_id()).get()
                     ),
                     String::from_utf8_lossy(match commit.summary_bytes() {
                         Some(b) => b,
                         None => continue
-                    })), color::WHITE)
+                    })))
                 .build());
         }
 
