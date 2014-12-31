@@ -24,9 +24,11 @@ use std::os;
 
 mod prompt_buffer;
 mod git;
+mod due_date;
 
 fn get_prompt() -> PromptBuffer<'static> {
     let mut buf = PromptBuffer::new();
+    buf.add_plugin(box due_date::DueDatePlugin::new());
     buf.add_plugin(box git::GitPlugin::new());
 
     buf

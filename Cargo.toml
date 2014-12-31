@@ -4,6 +4,9 @@ name = "Megaprompt"
 version = "0.0.1"
 authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
 
+[dependencies]
+time = "*"
+
 [dependencies.git2]
 git = "https://github.com/alexcrichton/git2-rs"
 
