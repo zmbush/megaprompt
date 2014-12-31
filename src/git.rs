@@ -74,6 +74,7 @@ fn status(buffer: &mut Vec<PromptLine>, path: &Path, repo: &Repository) -> bool 
     let st = repo.statuses(Some(StatusOptions::new()
         .include_untracked(true)
         .renames_head_to_index(true)
+        .exclude_submodules(true)
     ));
 
     let make_path_relative = |current: Path| {
