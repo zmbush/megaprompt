@@ -231,7 +231,6 @@ impl GitPlugin {
         let branches = try!(git_branch(repo));
 
         let mut revwalk = try!(repo.revwalk());
-        revwalk.set_sorting(git2::SORT_REVERSE);
 
         let from = try!(repo.revparse_single(branches.upstream.unwrap().as_slice())).id();
         let to = try!(repo.revparse_single(branches.name.unwrap().as_slice())).id();
