@@ -1,6 +1,5 @@
 use std::fmt;
 use std::cmp;
-use std::clone;
 use std::os;
 use term::color;
 
@@ -12,40 +11,30 @@ pub fn col(c: u16) -> String {
     col_cmd(&format!("{}m", c + 30))
 }
 
-fn bcol(c: u16) -> String{
+pub fn bcol(c: u16) -> String {
     col_cmd(&format!("1;{}m", c + 30))
 }
 
-pub fn reset() -> String{
+pub fn reset() -> String {
     col_cmd(&"0m")
 }
 
-pub struct PromptBuffer<'a> {
-    plugins: Vec<Box<PromptBufferPlugin+'a>>,
-    path: Path
-}
-
+#[deriving(Clone)]
 enum PromptLineType {
     Boxed,
     Free
 }
 
-impl Copy for PromptLineType {}
-
+/// PromptBox
+///
+/// The smallest component of a prompt line
+///
+/// Contains a color, text, and "is bold" flag
+#[deriving(Clone)]
 struct PromptBox {
-    color: u16,
+    color: color::Color,
     text: String,
     is_bold: bool
-}
-
-impl clone::Clone for PromptBox {
-    fn clone(&self) -> PromptBox {
-        PromptBox {
-            color: self.color,
-            text: self.text.clone(),
-            is_bold: self.is_bold
-        }
-    }
 }
 
 impl fmt::Show for PromptBox {
@@ -54,6 +43,10 @@ impl fmt::Show for PromptBox {
     }
 }
 
+/// PromptLine
+///
+/// The small pieces used to display prompt lines
+#[deriving(Clone)]
 pub struct PromptLine {
     level: u8,
     line_type: PromptLineType,
@@ -76,46 +69,9 @@ impl PromptLine {
     }
 }
 
-impl clone::Clone for PromptLine {
-    fn clone(&self) -> PromptLine {
-        PromptLine {
-            level: self.level,
-            line_type: self.line_type,
-            parts: self.parts.clone(),
-        }
-    }
-}
-
-const TOP       : int = 8;
-const BOTTOM    : int = 4;
-const LEFT      : int = 2;
-const RIGHT     : int = 1;
-
-fn get_line(flags: int) -> char {
-    return match flags {
-        0b1111 => '┼',
-        0b1110 => '┤',
-        0b1101 => '├',
-        0b1100 => '│',
-        0b1011 => '┴',
-        0b1010 => '┘',
-        0b1001 => '└',
-        0b0110 => '┐',
-        0b0101 => '┌',
-        0b0111 => '┬',
-        0b0011 => '─',
-        _      => ' '
-    }
-}
-
-fn trail_off() -> String {
-    let mut retval = String::new();
-    for _ in range(0i,10i) {
-        retval = format!("{}{}", retval, get_line(LEFT|RIGHT));
-    }
-    retval
-}
-
+/// PromptLineBuilder
+///
+/// Used to easily construct PromptLines
 pub struct PromptLineBuilder {
     line: PromptLine
 }
@@ -172,12 +128,51 @@ impl PromptLineBuilder {
     }
 }
 
+const TOP       : int = 8;
+const BOTTOM    : int = 4;
+const LEFT      : int = 2;
+const RIGHT     : int = 1;
+
+/// PromptBuffer
+///
+/// Used to contain a list of PromptLines
+/// Knows how to format a serise of PromptLines in a pretty way
+pub struct PromptBuffer<'a> {
+    plugins: Vec<Box<PromptBufferPlugin+'a>>,
+    path: Path
+}
+
 impl<'a> PromptBuffer<'a> {
     pub fn new() -> PromptBuffer<'a> {
         PromptBuffer {
             plugins: Vec::new(),
             path: os::make_absolute(&Path::new(".")).unwrap()
         }
+    }
+
+    fn get_line(flags: int) -> char {
+        return match flags {
+            0b1111 => '┼',
+            0b1110 => '┤',
+            0b1101 => '├',
+            0b1100 => '│',
+            0b1011 => '┴',
+            0b1010 => '┘',
+            0b1001 => '└',
+            0b0110 => '┐',
+            0b0101 => '┌',
+            0b0111 => '┬',
+            0b0011 => '─',
+            _      => ' '
+        }
+    }
+
+    fn trail_off() -> String {
+        let mut retval = String::new();
+        for _ in range(0i,10i) {
+            retval = format!("{}{}", retval, PromptBuffer::get_line(LEFT|RIGHT));
+        }
+        retval
     }
 
     pub fn start(&self, lines: &mut Vec<PromptLine>) {
@@ -224,7 +219,7 @@ impl<'a> PromptBuffer<'a> {
 
             for i in range(start, end + 1) {
                 line_text = format!("{}{}", line_text,
-                    get_line(
+                    PromptBuffer::get_line(
                         if i == current && ix > 0 { TOP } else { 0 } |
                         if i == after { BOTTOM } else { 0 } |
                         if i > start { LEFT } else { 0 } |
@@ -244,17 +239,17 @@ impl<'a> PromptBuffer<'a> {
                 line_text = match line.line_type {
                     PromptLineType::Boxed => format!("{}{}{}{}{}",
                         line_text,
-                        get_line(LEFT|RIGHT),
-                        get_line(LEFT|TOP|BOTTOM),
+                        PromptBuffer::get_line(LEFT|RIGHT),
+                        PromptBuffer::get_line(LEFT|TOP|BOTTOM),
                         b,
-                        get_line(TOP|BOTTOM|RIGHT)),
+                        PromptBuffer::get_line(TOP|BOTTOM|RIGHT)),
                     PromptLineType::Free => format!("{} {}", line_text, b)
                 };
             }
 
             match line.line_type {
                 PromptLineType::Boxed => {
-                    line_text = format!("{}{}", line_text, trail_off());
+                    line_text = format!("{}{}", line_text, PromptBuffer::trail_off());
                 },
                 _ => {}
             }
@@ -262,11 +257,14 @@ impl<'a> PromptBuffer<'a> {
             retval = format!("{}{}\n", retval, line_text);
         }
 
-        format!("{}{}{}{} ", retval, get_line(TOP|RIGHT), get_line(LEFT|RIGHT), PromptBox {
-            text: "\\$".to_string(),
-            color: color::RED,
-            is_bold: false
-        })
+        format!("{}{}{}{} ",
+            retval,
+            PromptBuffer::get_line(TOP|RIGHT), PromptBuffer::get_line(LEFT|RIGHT),
+            PromptBox {
+                text: "\\$".to_string(),
+                color: color::RED,
+                is_bold: false
+            })
     }
 
     pub fn print(&mut self) {
