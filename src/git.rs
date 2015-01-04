@@ -230,8 +230,8 @@ impl GitPlugin {
 
         let mut revwalk = try!(repo.revwalk());
 
-        let from = try!(repo.revparse_single(branches.upstream.unwrap().as_slice())).id();
-        let to = try!(repo.revparse_single(branches.name.unwrap().as_slice())).id();
+        let from = try!(repo.revparse_single(branches.upstream.unwrap_or("HEAD".to_string()).as_slice())).id();
+        let to = try!(repo.revparse_single(branches.name.unwrap_or("HEAD".to_string()).as_slice())).id();
 
         try!(revwalk.push(to));
         try!(revwalk.hide(from));
