@@ -137,7 +137,6 @@ impl GitPlugin {
         }
     }
 
-
     fn get_repo(&self) -> Result<&Repository, Error> {
         match self.repo {
             Some(ref repo) => Ok(repo),
@@ -151,7 +150,6 @@ impl GitPlugin {
         let st = repo.statuses(Some(StatusOptions::new()
             .include_untracked(true)
             .renames_head_to_index(true)
-            .exclude_submodules(true)
         ));
 
         let make_path_relative = |current: Path| {
