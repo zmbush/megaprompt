@@ -12,7 +12,8 @@ use std::io::{
     Listener,
     process,
     stdio,
-    timer
+    timer,
+    IoError
 };
 use std::time::Duration;
 use std::io::fs::PathExtensions;
@@ -43,6 +44,16 @@ fn exe_changed() -> u64 {
             }
         },
         None => 0u64
+    }
+}
+
+fn current_pid(pid_path: &Path) -> Result<i32, IoError> {
+    let mut file = try!(File::open(pid_path));
+    let contents = try!(file.read_to_string());
+
+    match contents.parse() {
+        Some(value) => Ok(value),
+        None => Err(IoError::from_errno(libc::consts::os::posix88::ENOMSG as uint, true))
     }
 }
 
@@ -84,16 +95,7 @@ fn main() {
             }
         }
     } else {
-        let current_pid = match File::open(&pid_path) {
-            Ok(mut file) => match file.read_to_string() {
-                Ok(line) => match line.parse() {
-                    Some(value) => value,
-                    _ => -1
-                },
-                _ => -1
-            },
-            _ => -1
-        };
+        let current_pid = current_pid(&pid_path).ok().unwrap_or(-1);
 
         match process::Process::kill(current_pid, 0) {
             Err(_) => {
