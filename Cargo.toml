@@ -11,4 +11,5 @@ time = "*"
 git = "https://github.com/alexcrichton/git2-rs"
 
 [[bin]]
-name = 'megaprompt'
+name = "megaprompt"
+path = "src/main.rs"
