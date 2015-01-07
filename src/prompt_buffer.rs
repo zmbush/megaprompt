@@ -19,7 +19,7 @@ pub fn reset() -> String {
     col_cmd(&"0m")
 }
 
-#[deriving(Clone)]
+#[derive(Clone)]
 enum PromptLineType {
     Boxed,
     Free
@@ -30,7 +30,7 @@ enum PromptLineType {
 /// The smallest component of a prompt line
 ///
 /// Contains a color, text, and "is bold" flag
-#[deriving(Clone)]
+#[derive(Clone)]
 struct PromptBox {
     color: color::Color,
     text: String,
@@ -46,7 +46,7 @@ impl fmt::Show for PromptBox {
 /// PromptLine
 ///
 /// The small pieces used to display prompt lines
-#[deriving(Clone)]
+#[derive(Clone)]
 pub struct PromptLine {
     level: u8,
     line_type: PromptLineType,

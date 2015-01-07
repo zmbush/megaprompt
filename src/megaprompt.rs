@@ -1,3 +1,5 @@
+#![feature(associated_types)]
+
 extern crate term;
 extern crate git2;
 extern crate libc;

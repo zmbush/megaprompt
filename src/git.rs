@@ -152,7 +152,7 @@ impl GitPlugin {
             .renames_head_to_index(true)
         ));
 
-        let make_path_relative = |current: Path| {
+        let make_path_relative = |&: current: Path| {
             let mut fullpath = repo.workdir().unwrap();
             fullpath.push(current);
 

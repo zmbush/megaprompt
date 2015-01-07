@@ -30,7 +30,9 @@ impl PathTraversal {
     }
 }
 
-impl Iterator<Path> for PathTraversal {
+impl Iterator for PathTraversal {
+    type Item = Path;
+
     fn next(&mut self) -> Option<Path> {
         if !self.path.pop() { return None; };
         Some(self.path.clone())
@@ -66,7 +68,7 @@ impl PromptBufferPlugin for DueDatePlugin {
             if path.is_file() {
                 let mut reader = BufferedReader::new(File::open(&path));
 
-                let line = |s: &str| { reader.read_line().unwrap_or(s.to_string()) };
+                let mut line = |&mut: s: &str| { reader.read_line().unwrap_or(s.to_string()) };
 
                 match time::strptime(line("").trim().as_slice(), "%a %b %d %H:%M:%S %Y") {
                     Ok(due_date) => {
@@ -77,7 +79,7 @@ impl PromptBufferPlugin for DueDatePlugin {
                         let (seconds, past_due) = if s < 0 { (-s, true) } else { (s, false) };
                         let mut seconds: f32 = from_i64(seconds).unwrap_or(0.0);
 
-                        let ups: [f32,..9] = [10.0, 10.0, 10.0, 365.0/30.0, 30.0, 24.0, 60.0, 60.0, 1.0];
+                        let ups: [f32; 9] = [10.0, 10.0, 10.0, 365.0/30.0, 30.0, 24.0, 60.0, 60.0, 1.0];
                         let time_periods = [
                             TimePeriod::new_unique("millenium", "millenia"),
                             TimePeriod::new_unique("century", "centuries"),
