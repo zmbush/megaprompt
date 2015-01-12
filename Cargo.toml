@@ -6,6 +6,7 @@ authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
 
 [dependencies]
 time = "*"
+term = "*"
 
 [dependencies.git2]
 git = "https://github.com/alexcrichton/git2-rs"

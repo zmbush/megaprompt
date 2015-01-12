@@ -1,10 +1,12 @@
 extern crate git2;
+extern crate term;
 
 use prompt_buffer;
 use prompt_buffer::{PromptLine, PromptBufferPlugin, PromptLineBuilder};
 use git2::{Repository, Error, StatusOptions, STATUS_WT_NEW};
 use std::{os, fmt};
 use term::color;
+use std::ops::Deref;
 
 enum StatusTypes {
     New,
@@ -16,7 +18,7 @@ enum StatusTypes {
     Clean
 }
 
-impl fmt::Show for StatusTypes {
+impl fmt::String for StatusTypes {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match *self {
             StatusTypes::Clean => " ",
@@ -57,7 +59,7 @@ impl GitStatus {
     }
 }
 
-impl fmt::Show for GitStatus {
+impl fmt::String for GitStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.index, self.workdir)
     }
@@ -254,7 +256,11 @@ impl GitPlugin {
                 .block(&format!("{}{} {}",
                     prompt_buffer::reset(),
                     String::from_utf8_lossy(
-                        try!(try!(repo.find_object(commit.id(), None)).short_id()).get()
+                        try!(
+                            try!(
+                                repo.find_object(commit.id(), None)
+                            ).short_id()
+                        ).deref()
                     ),
                     String::from_utf8_lossy(match commit.summary_bytes() {
                         Some(b) => b,

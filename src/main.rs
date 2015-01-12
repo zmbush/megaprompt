@@ -1,5 +1,3 @@
-#![feature(associated_types)]
-
 extern crate term;
 extern crate git2;
 extern crate libc;
@@ -31,8 +29,8 @@ mod due_date;
 
 fn get_prompt() -> PromptBuffer<'static> {
     let mut buf = PromptBuffer::new();
-    buf.add_plugin(box due_date::DueDatePlugin::new());
-    buf.add_plugin(box git::GitPlugin::new());
+    buf.add_plugin(Box::new(due_date::DueDatePlugin::new()));
+    buf.add_plugin(Box::new(git::GitPlugin::new()));
 
     buf
 }
@@ -55,7 +53,7 @@ fn current_pid(pid_path: &Path) -> Result<i32, IoError> {
 
     match contents.parse() {
         Some(value) => Ok(value),
-        None => Err(IoError::from_errno(libc::consts::os::posix88::ENOMSG as uint, true))
+        None => Err(IoError::from_errno(libc::consts::os::posix88::ENOMSG as usize, true))
     }
 }
 
@@ -67,8 +65,8 @@ fn main() {
 
     let args = os::args();
     if args.len() > 1 { // Daemon process
-        stdio::set_stdout(box File::create(&stdout_path));
-        stdio::set_stderr(box File::create(&stderr_path));
+        stdio::set_stdout(Box::new(File::create(&stdout_path)));
+        stdio::set_stderr(Box::new(File::create(&stderr_path)));
 
         let last_modified = exe_changed();
 

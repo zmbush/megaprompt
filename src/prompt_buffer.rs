@@ -3,7 +3,7 @@ use std::cmp;
 use std::os;
 use term::color;
 
-fn col_cmd(c: &fmt::Show) -> String{
+fn col_cmd(c: &fmt::String) -> String{
     format!("\\[{}[{}\\]", '\x1B', c)
 }
 
@@ -37,7 +37,7 @@ struct PromptBox {
     is_bold: bool
 }
 
-impl fmt::Show for PromptBox {
+impl fmt::String for PromptBox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}{}", if self.is_bold { bcol(self.color) } else { col(self.color) }, self.text, reset())
     }
@@ -99,7 +99,7 @@ impl PromptLineBuilder {
         self.indent_by(1)
     }
 
-    fn add_block(mut self, s: &fmt::Show, c: u16, bold: bool) -> PromptLineBuilder {
+    fn add_block(mut self, s: &fmt::String, c: u16, bold: bool) -> PromptLineBuilder {
         self.line.parts.push(
             PromptBox {
                 color: c,
@@ -111,15 +111,15 @@ impl PromptLineBuilder {
         self
     }
 
-    pub fn block(self, s: &fmt::Show) -> PromptLineBuilder {
+    pub fn block(self, s: &fmt::String) -> PromptLineBuilder {
         self.add_block(s, color::MAGENTA, false)
     }
 
-    pub fn colored_block(self, s: &fmt::Show, c: u16) -> PromptLineBuilder {
+    pub fn colored_block(self, s: &fmt::String, c: u16) -> PromptLineBuilder {
         self.add_block(s, c, false)
     }
 
-    pub fn bold_colored_block(self, s: &fmt::Show, c: u16) -> PromptLineBuilder {
+    pub fn bold_colored_block(self, s: &fmt::String, c: u16) -> PromptLineBuilder {
         self.add_block(s, c, true)
     }
 
@@ -128,10 +128,10 @@ impl PromptLineBuilder {
     }
 }
 
-const TOP       : int = 8;
-const BOTTOM    : int = 4;
-const LEFT      : int = 2;
-const RIGHT     : int = 1;
+const TOP       : i16 = 8;
+const BOTTOM    : i16 = 4;
+const LEFT      : i16 = 2;
+const RIGHT     : i16 = 1;
 
 /// PromptBuffer
 ///
@@ -144,13 +144,14 @@ pub struct PromptBuffer<'a> {
 
 impl<'a> PromptBuffer<'a> {
     pub fn new() -> PromptBuffer<'a> {
+        #![allow(unstable)]
         PromptBuffer {
             plugins: Vec::new(),
             path: os::make_absolute(&Path::new(".")).unwrap()
         }
     }
 
-    fn get_line(flags: int) -> char {
+    fn get_line(flags: i16) -> char {
         return match flags {
             0b1111 => '┼',
             0b1110 => '┤',
@@ -169,7 +170,7 @@ impl<'a> PromptBuffer<'a> {
 
     fn trail_off() -> String {
         let mut retval = String::new();
-        for _ in range(0i,10i) {
+        for _ in 0..10 {
             retval = format!("{}{}", retval, PromptBuffer::get_line(LEFT|RIGHT));
         }
         retval
@@ -197,11 +198,11 @@ impl<'a> PromptBuffer<'a> {
         self.start(&mut lines);
 
         let mut pl = self.plugins.as_mut_slice();
-        for i in range(0, pl.len()) {
+        for i in 0 .. pl.len() {
             pl[i].run(&self.path, &mut lines);
         }
 
-        for ix in range(0, lines.len()) {
+        for ix in 0 .. lines.len() {
             let ref line = lines[ix];
             let current = line.level;
             let (after, start, end) = if ix + 1 < lines.len() {
@@ -217,7 +218,7 @@ impl<'a> PromptBuffer<'a> {
                 line_text = format!(" {}", line_text);
             }
 
-            for i in range(start, end + 1) {
+            for i in start .. end + 1 {
                 line_text = format!("{}{}", line_text,
                     PromptBuffer::get_line(
                         if i == current && ix > 0 { TOP } else { 0 } |

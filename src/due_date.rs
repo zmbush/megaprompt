@@ -96,8 +96,8 @@ impl PromptBufferPlugin for DueDatePlugin {
                             ups.slice_from(i).iter().fold(1.0, |a, &b| a * b)
                         });
 
-                        let accuracy = 2u;
-                        let mut count = 0u;
+                        let accuracy = 2u8;
+                        let mut count = 0u8;
                         let mut due_phrase = String::new();
 
                         for (amount, name) in times.zip(time_periods.iter()) {
