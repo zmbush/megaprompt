@@ -18,7 +18,7 @@ enum StatusTypes {
     Clean
 }
 
-impl fmt::String for StatusTypes {
+#[allow(unstable)] impl fmt::String for StatusTypes {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match *self {
             StatusTypes::Clean => " ",
@@ -59,17 +59,14 @@ impl GitStatus {
     }
 }
 
-impl fmt::String for GitStatus {
+#[allow(unstable)] impl fmt::String for GitStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.index, self.workdir)
     }
 }
 
 fn get_git(path: &Path) -> Option<Repository> {
-    match Repository::discover(path) {
-        Ok(repo) => Some(repo),
-        _ => None
-    }
+    Repository::discover(path).ok()
 }
 
 struct BranchInfo {

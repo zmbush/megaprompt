@@ -37,7 +37,7 @@ struct PromptBox {
     is_bold: bool
 }
 
-impl fmt::String for PromptBox {
+#[allow(unstable)] impl fmt::String for PromptBox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}{}", if self.is_bold { bcol(self.color) } else { col(self.color) }, self.text, reset())
     }
@@ -137,13 +137,13 @@ const RIGHT     : i16 = 1;
 ///
 /// Used to contain a list of PromptLines
 /// Knows how to format a serise of PromptLines in a pretty way
-pub struct PromptBuffer<'a> {
-    plugins: Vec<Box<PromptBufferPlugin+'a>>,
+pub struct PromptBuffer {
+    plugins: Vec<Box<PromptBufferPlugin+Send>>,
     path: Path
 }
 
-impl<'a> PromptBuffer<'a> {
-    pub fn new() -> PromptBuffer<'a> {
+impl PromptBuffer {
+    pub fn new() -> PromptBuffer {
         #![allow(unstable)]
         PromptBuffer {
             plugins: Vec::new(),
@@ -183,7 +183,7 @@ impl<'a> PromptBuffer<'a> {
             .build());
     }
 
-    pub fn add_plugin(&mut self, plugin: Box<PromptBufferPlugin+'a>) {
+    pub fn add_plugin(&mut self, plugin: Box<PromptBufferPlugin+Send>) {
         self.plugins.push(plugin);
     }
 
@@ -191,15 +191,17 @@ impl<'a> PromptBuffer<'a> {
         self.path = p;
     }
 
-    pub fn to_string(&mut self) -> String {
+    pub fn to_string_ext(&mut self, fast: bool) -> String {
         let mut retval = String::new();
         let mut lines = Vec::new();
 
         self.start(&mut lines);
 
-        let mut pl = self.plugins.as_mut_slice();
-        for i in 0 .. pl.len() {
-            pl[i].run(&self.path, &mut lines);
+        if !fast {
+            let mut pl = self.plugins.as_mut_slice();
+            for i in 0 .. pl.len() {
+                pl[i].run(&self.path, &mut lines);
+            }
         }
 
         for ix in 0 .. lines.len() {
@@ -214,7 +216,8 @@ impl<'a> PromptBuffer<'a> {
 
             let mut line_text = String::new();
 
-            for _ in range(0, start) {
+            // FIXME: change when range syntax is fixed
+            for _ in (0..start) {
                 line_text = format!(" {}", line_text);
             }
 
@@ -268,8 +271,16 @@ impl<'a> PromptBuffer<'a> {
             })
     }
 
+    pub fn to_string(&mut self) -> String {
+        self.to_string_ext(false)
+    }
+
     pub fn print(&mut self) {
         println!("{}", self.to_string());
+    }
+
+    pub fn print_fast(&mut self) {
+        println!("{}", self.to_string_ext(true));
     }
 }
 
