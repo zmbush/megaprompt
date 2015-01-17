@@ -144,7 +144,6 @@ pub struct PromptBuffer {
 
 impl PromptBuffer {
     pub fn new() -> PromptBuffer {
-        #![allow(unstable)]
         PromptBuffer {
             plugins: Vec::new(),
             path: os::make_absolute(&Path::new(".")).unwrap()
@@ -153,18 +152,18 @@ impl PromptBuffer {
 
     fn get_line(flags: i16) -> char {
         return match flags {
-            0b1111 => '┼',
-            0b1110 => '┤',
-            0b1101 => '├',
-            0b1100 => '│',
-            0b1011 => '┴',
-            0b1010 => '┘',
-            0b1001 => '└',
-            0b0110 => '┐',
-            0b0101 => '┌',
-            0b0111 => '┬',
-            0b0011 => '─',
-            _      => ' '
+            c if c == TOP | BOTTOM | LEFT | RIGHT => '┼',
+            c if c == TOP | BOTTOM | LEFT         => '┤',
+            c if c == TOP | BOTTOM        | RIGHT => '├',
+            c if c == TOP | BOTTOM                => '│',
+            c if c == TOP          | LEFT | RIGHT => '┴',
+            c if c == TOP          | LEFT         => '┘',
+            c if c == TOP                 | RIGHT => '└',
+            c if c ==       BOTTOM | LEFT         => '┐',
+            c if c ==       BOTTOM        | RIGHT => '┌',
+            c if c ==       BOTTOM | LEFT | RIGHT => '┬',
+            c if c ==                LEFT | RIGHT => '─',
+            _      => panic!("Passed invalid value to get_line")
         }
     }
 
