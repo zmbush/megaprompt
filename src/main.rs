@@ -24,8 +24,10 @@ use std::io::net::pipe::{
     UnixListener,
 };
 use std::os;
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread::Thread;
+use std::collections::HashMap;
 
 mod prompt_buffer;
 mod git;
@@ -61,6 +63,117 @@ fn current_pid(pid_path: &Path) -> Result<i32, IoError> {
     }
 }
 
+macro_rules! sock_try {
+    ($x:expr) => {
+        match $x {
+            Ok(v) => v,
+            Err(_) => continue
+        }
+    };
+}
+
+struct PromptThread {
+    send: Sender<()>,
+    recv: Receiver<String>,
+    death: Receiver<()>,
+    path: Path,
+    cached: String,
+    alive: bool
+}
+
+impl PromptThread {
+    fn new(path: Path) -> PromptThread {
+        let (tx_notify, rx_notify) = mpsc::channel();
+        let (tx_prompt, rx_prompt) = mpsc::channel();
+        let (tx_death, rx_death) = mpsc::channel();
+
+        let p = path.clone();
+        Thread::spawn(move || {
+            let mut prompt = get_prompt();
+            prompt.set_path(p);
+            let mut timer = Timer::new().unwrap();
+
+            loop {
+                let timeout = timer.oneshot(Duration::minutes(10));
+
+                select! {
+                    val = rx_notify.recv() => {
+                        tx_prompt.send(prompt.to_string()).unwrap();
+                    },
+                    _ = timeout.recv() => {
+                        // Assume someone is listening for my death
+                        // Otherwise it doesn't matter
+                        tx_death.send(()).unwrap();
+                        break;
+                    }
+                }
+            }
+        });
+
+        PromptThread {
+            send: tx_notify,
+            recv: rx_prompt,
+            death: rx_death,
+            path: path,
+            cached: get_prompt().to_string_ext(true),
+            alive: true
+        }
+    }
+
+    fn is_alive(&mut self) -> bool {
+        if (self.death.try_recv().is_ok()) {
+            self.alive = false;
+        }
+
+        self.alive
+    }
+
+    fn revive(&mut self) {
+        let new = PromptThread::new(self.path.clone());
+        self.send = new.send;
+        self.recv = new.recv;
+        self.death = new.death;
+        self.path = new.path;
+        self.cached = new.cached;
+        self.alive = new.alive;
+    }
+
+    fn get(&mut self) -> String {
+        if !self.is_alive() {
+            self.revive();
+        }
+
+        self.send.send(()).unwrap();
+
+        let mut timer = Timer::new().unwrap();
+        let timeout = timer.oneshot(Duration::milliseconds(100));
+
+        loop {
+            let resp = self.recv.try_recv();
+
+            if resp.is_ok() {
+                // We got a good response
+                let mut text = resp.unwrap();
+
+                loop {
+                    match self.recv.try_recv() {
+                        Ok(t) => text = t,
+                        Err(_) => break
+                    }
+                }
+
+                self.cached = text;
+                return self.cached.clone();
+            }
+
+            // We ran out of time!
+            if timeout.try_recv().is_ok() {
+                return self.cached.clone();
+            }
+        }
+    }
+}
+
 fn main() {
     let stdout_path = Path::new("/var/log/megaprompt/current.out");
     let stderr_path = Path::new("/var/log/megaprompt/current.err");
@@ -75,6 +188,7 @@ fn main() {
         let last_modified = exe_changed();
         let mut cached_response = get_prompt().to_string_ext(true);
         let mut index = 0i32;
+        let mut threads: HashMap<Path, PromptThread> = HashMap::new();
 
         if socket_path.exists() {
             fs::unlink(&socket_path).unwrap();
@@ -99,44 +213,39 @@ fn main() {
         });
 
         for mut connection in stream.listen().incoming() {
-            macro_rules! sock_try {
-                ($x:expr) => {
-                    match $x {
-                        Ok(v) => v,
-                        Err(_) => continue
-                    }
-                };
-            }
             let c = &mut connection;
             let mut timer = Timer::new().unwrap();
             // We need to respond within 100 ms, so set a 90ms timer
             let respond_by = timer.oneshot(Duration::milliseconds(90));
 
             let output = Path::new(sock_try!(c.read_to_string()));
-            index += 1;
-            snd_path.send((index, output)).unwrap();
+            println!("Preparing to respond to for {}", output.display());
 
-            loop {
-                let resp = recv_prompt.try_recv();
-
-                if resp.is_ok() {
-                    // We got a good response
-                    let (ix, text) = resp.unwrap();
-
-                    cached_response = text;
-                    if ix == index {
-                        sock_try!(write!(c, "{}", &cached_response));
-                        break;
-                    }
-                }
-
-                // We ran out of time!
-                if respond_by.try_recv().is_ok() {
-                    sock_try!(write!(c, "{}~ ", &cached_response));
-                    break;
+            let keys: Vec<Path> = threads.keys().map(|x| { x.clone() }).collect();
+            for path in keys.iter() {
+                if !threads.get_mut(path).unwrap().is_alive() {
+                    println!("- Remove thread {}", path.display());
+                    threads.remove(path);
                 }
             }
 
+            if (!threads.contains_key(&output)) {
+                println!("+ Add thread {}", output.display());
+                threads.insert(output.clone(), PromptThread::new(output.clone()));
+            }
+
+            for path in threads.keys() {
+                println!("* Active thread {}", path.display());
+            }
+
+            let mut thr = threads.get_mut(&output).unwrap();
+
+            sock_try!(write!(c, "{}", thr.get()));
+
+            index += 1;
+            snd_path.send((index, output)).unwrap();
+
+            println!("");
             if last_modified != exe_changed() {
                 sock_try!(write!(c, "♻  "));
                 return;
@@ -180,13 +289,13 @@ fn main() {
 
         write!(&mut stream, "{}", os::make_absolute(&Path::new(".")).unwrap().display()).unwrap();
         stream.close_write().unwrap();
-        stream.set_read_timeout(Some(100));
+        stream.set_read_timeout(Some(200));
         match stream.read_to_string() {
             Ok(s) => println!("{}", s),
             Err(_) => {
                 println!("Response too slow");
                 get_prompt().print_fast();
-                return
+                return;
             }
         }
     }
