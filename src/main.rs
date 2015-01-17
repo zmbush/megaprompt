@@ -1,7 +1,8 @@
-#![deny(unused_must_use)]
+#![deny(unused_must_use, unused_imports)]
+#![deny(unused_parens, unused_variables, unused_mut)]
 extern crate term;
 extern crate git2;
-#[allow(unstable)] extern crate libc;
+extern crate libc;
 
 use prompt_buffer::PromptBuffer;
 
@@ -24,7 +25,6 @@ use std::io::net::pipe::{
     UnixListener,
 };
 use std::os;
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread::Thread;
 use std::collections::HashMap;
@@ -97,7 +97,7 @@ impl PromptThread {
                 let timeout = timer.oneshot(Duration::minutes(10));
 
                 select! {
-                    val = rx_notify.recv() => {
+                    _ = rx_notify.recv() => {
                         tx_prompt.send(prompt.to_string()).unwrap();
                     },
                     _ = timeout.recv() => {
@@ -121,7 +121,7 @@ impl PromptThread {
     }
 
     fn is_alive(&mut self) -> bool {
-        if (self.death.try_recv().is_ok()) {
+        if self.death.try_recv().is_ok() {
             self.alive = false;
         }
 
@@ -186,8 +186,6 @@ fn main() {
         stdio::set_stderr(Box::new(File::create(&stderr_path)));
 
         let last_modified = exe_changed();
-        let mut cached_response = get_prompt().to_string_ext(true);
-        let mut index = 0i32;
         let mut threads: HashMap<Path, PromptThread> = HashMap::new();
 
         if socket_path.exists() {
@@ -199,24 +197,8 @@ fn main() {
             Ok(stream) => stream
         };
 
-        let (snd_path, recv_path) = mpsc::channel();
-        let (snd_prompt, recv_prompt) = mpsc::channel();
-
-        Thread::spawn(move || {
-            let mut prompt = get_prompt();
-
-            for (ix, path) in recv_path.iter() {
-                prompt.set_path(path);
-
-                snd_prompt.send((ix, prompt.to_string())).unwrap();
-            }
-        });
-
         for mut connection in stream.listen().incoming() {
             let c = &mut connection;
-            let mut timer = Timer::new().unwrap();
-            // We need to respond within 100 ms, so set a 90ms timer
-            let respond_by = timer.oneshot(Duration::milliseconds(90));
 
             let output = Path::new(sock_try!(c.read_to_string()));
             println!("Preparing to respond to for {}", output.display());
@@ -229,7 +211,7 @@ fn main() {
                 }
             }
 
-            if (!threads.contains_key(&output)) {
+            if !threads.contains_key(&output) {
                 println!("+ Add thread {}", output.display());
                 threads.insert(output.clone(), PromptThread::new(output.clone()));
             }
@@ -242,10 +224,8 @@ fn main() {
 
             sock_try!(write!(c, "{}", thr.get()));
 
-            index += 1;
-            snd_path.send((index, output)).unwrap();
-
             println!("");
+
             if last_modified != exe_changed() {
                 sock_try!(write!(c, "♻  "));
                 return;
