@@ -129,13 +129,7 @@ impl PromptThread {
     }
 
     fn revive(&mut self) {
-        let new = PromptThread::new(self.path.clone());
-        self.send = new.send;
-        self.recv = new.recv;
-        self.death = new.death;
-        self.path = new.path;
-        self.cached = new.cached;
-        self.alive = new.alive;
+        *self = PromptThread::new(self.path.clone());
     }
 
     fn get(&mut self) -> String {
