@@ -6,28 +6,28 @@ extern crate libc;
 
 use prompt_buffer::PromptBuffer;
 
+use std::collections::HashMap;
 use std::io::{
     Acceptor,
     Command,
     File,
     fs,
+    IoError,
     Listener,
     process,
     stdio,
     timer,
-    IoError,
-    Timer
+    Timer,
 };
-use std::time::Duration;
 use std::io::fs::PathExtensions;
 use std::io::net::pipe::{
-    UnixStream,
     UnixListener,
+    UnixStream,
 };
 use std::os;
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
-use std::collections::HashMap;
+use std::time::Duration;
 
 mod prompt_buffer;
 mod git;
@@ -107,6 +107,9 @@ impl PromptThread {
                         break;
                     }
                 }
+
+                // Drain notify channel
+                while rx_notify.try_recv().is_ok() {}
             }
         });
 
@@ -164,6 +167,8 @@ impl PromptThread {
             if timeout.try_recv().is_ok() {
                 return self.cached.clone();
             }
+
+            timer::sleep(Duration::milliseconds(10));
         }
     }
 }
