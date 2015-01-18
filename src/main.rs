@@ -26,7 +26,7 @@ use std::io::net::pipe::{
 };
 use std::os;
 use std::sync::mpsc::{self, Sender, Receiver};
-use std::thread::Thread;
+use std::thread;
 use std::collections::HashMap;
 
 mod prompt_buffer;
@@ -88,7 +88,7 @@ impl PromptThread {
         let (tx_death, rx_death) = mpsc::channel();
 
         let p = path.clone();
-        Thread::spawn(move || {
+        thread::Builder::new().name(format!("{}", path.display())).spawn(move || {
             let mut prompt = get_prompt();
             prompt.set_path(p);
             let mut timer = Timer::new().unwrap();
