@@ -2,12 +2,12 @@
 #![deny(unused_parens, unused_variables, unused_mut)]
 extern crate term;
 extern crate git2;
-extern crate libc;
 
 use prompt_buffer::PromptBuffer;
 
 use std::collections::HashMap;
 use std::io::{
+    self,
     Acceptor,
     Command,
     File,
@@ -18,6 +18,7 @@ use std::io::{
     stdio,
     timer,
     Timer,
+    IoErrorKind
 };
 use std::io::fs::PathExtensions;
 use std::io::net::pipe::{
@@ -59,7 +60,7 @@ fn current_pid(pid_path: &Path) -> Result<i32, IoError> {
 
     match contents.parse() {
         Some(value) => Ok(value),
-        None => Err(IoError::from_errno(libc::consts::os::posix88::ENOMSG as usize, true))
+        None => Err(io::standard_error(IoErrorKind::InvalidInput))
     }
 }
 
