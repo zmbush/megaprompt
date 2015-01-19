@@ -1,3 +1,4 @@
+//! The base class
 use std::os;
 use std::cmp;
 
@@ -23,6 +24,7 @@ pub struct PromptBuffer {
 }
 
 impl PromptBuffer {
+    /// Creates a new PromptBuffer at the current path
     pub fn new() -> PromptBuffer {
         PromptBuffer {
             plugins: Vec::new(),
@@ -55,21 +57,30 @@ impl PromptBuffer {
         retval
     }
 
-    pub fn start(&self, lines: &mut Vec<PromptLine>) {
+    fn start(&self, lines: &mut Vec<PromptLine>) {
         lines.push(PromptLineBuilder::new()
             .block(&"\\w")
             .block(&"\\H")
             .build());
     }
 
+    /// Adds a plugin to the prompt buffer
+    ///
+    /// They will be executed in order
     pub fn add_plugin(&mut self, plugin: Box<PromptBufferPlugin+Send>) {
         self.plugins.push(plugin);
     }
 
+    /// Store the new path for the PromptBuffer.
+    ///
+    /// This is sent in as context to PromptBufferPlugins
     pub fn set_path(&mut self, p: Path) {
         self.path = p;
     }
 
+    /// Returns the result of the prompt
+    ///
+    /// Allows specifying wether or not plugins should run with the 'fast' parameter
     pub fn to_string_ext(&mut self, fast: bool) -> String {
         let mut retval = String::new();
         let mut lines = Vec::new();
@@ -143,26 +154,29 @@ impl PromptBuffer {
         format!("{}{}{}{} ",
             retval,
             PromptBuffer::get_line(TOP|RIGHT), PromptBuffer::get_line(LEFT|RIGHT),
-            PromptBox {
-                text: "\\$".to_string(),
-                color: color::RED,
-                is_bold: false
-            })
+            PromptBox::create("\\$".to_string(), color::RED, false))
     }
 
+    /// Returns the prompt with plugins run
     pub fn to_string(&mut self) -> String {
         self.to_string_ext(false)
     }
 
+    /// Print a result with the plugins
     pub fn print(&mut self) {
         println!("{}", self.to_string());
     }
 
+    /// Print a result while skipping all plugins
     pub fn print_fast(&mut self) {
         println!("{}", self.to_string_ext(true));
     }
 }
 
+/// Implement this trait to allow extension of the PromptBuffer's result
 pub trait PromptBufferPlugin {
+    /// Should append as many PromptLines as it wants to the lines Vec
+    ///
+    /// The path can be used to provide context if necessary
     fn run(&mut self, path: &Path, lines: &mut Vec<PromptLine>);
 }

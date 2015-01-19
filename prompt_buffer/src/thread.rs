@@ -1,3 +1,9 @@
+//! Used to allow a thread per path. This way the cached value can be
+//! different based on which path it is running from. For paths with
+//! slow prompt.to_string outputs, this is particularily useful.
+//!
+//! Thred will run for 10 minutes after the last request, to avoid
+//! leaking too many threads.
 use std::io::{timer, Timer};
 use std::time::Duration;
 use std::thread;
@@ -5,6 +11,7 @@ use std::sync::mpsc::{self, Sender, Receiver};
 
 use buffer::PromptBuffer;
 
+/// Stores information about prompt threads
 pub struct PromptThread {
     send: Sender<()>,
     recv: Receiver<String>,
@@ -15,6 +22,7 @@ pub struct PromptThread {
 }
 
 impl PromptThread {
+    /// Creates a new prompt thread for a given path
     pub fn new(path: Path, make_prompt: &Fn() -> PromptBuffer) -> PromptThread {
         let (tx_notify, rx_notify) = mpsc::channel();
         let (tx_prompt, rx_prompt) = mpsc::channel();
@@ -57,6 +65,7 @@ impl PromptThread {
         }
     }
 
+    /// Checks whether a prompt thread has announced it's death.
     pub fn is_alive(&mut self) -> bool {
         if self.death.try_recv().is_ok() {
             self.alive = false;
@@ -69,6 +78,8 @@ impl PromptThread {
         *self = PromptThread::new(self.path.clone(), make_prompt)
     }
 
+    /// Gets a result out of the prompt thread, or return a cached result
+    /// if the response takes more than 100 milliseconds
     pub fn get(&mut self, make_prompt: &Fn() -> PromptBuffer) -> String {
         if !self.is_alive() {
             self.revive(make_prompt);
