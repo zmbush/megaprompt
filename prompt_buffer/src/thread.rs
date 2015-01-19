@@ -1,0 +1,108 @@
+use std::io::{timer, Timer};
+use std::time::Duration;
+use std::thread;
+use std::sync::mpsc::{self, Sender, Receiver};
+
+use buffer::PromptBuffer;
+
+pub struct PromptThread {
+    send: Sender<()>,
+    recv: Receiver<String>,
+    death: Receiver<()>,
+    path: Path,
+    cached: String,
+    alive: bool,
+}
+
+impl PromptThread {
+    pub fn new(path: Path, make_prompt: &Fn() -> PromptBuffer) -> PromptThread {
+        let (tx_notify, rx_notify) = mpsc::channel();
+        let (tx_prompt, rx_prompt) = mpsc::channel();
+        let (tx_death, rx_death) = mpsc::channel();
+
+        let p = path.clone();
+        let mut prompt = make_prompt();
+        let cached = prompt.to_string_ext(true);
+        thread::Builder::new().name(format!("{}", path.display())).spawn(move || {
+            prompt.set_path(p);
+            let mut timer = Timer::new().unwrap();
+
+            loop {
+                let timeout = timer.oneshot(Duration::minutes(10));
+
+                select! {
+                    _ = rx_notify.recv() => {
+                        tx_prompt.send(prompt.to_string()).unwrap();
+                    },
+                    _ = timeout.recv() => {
+                        // Assume someone is listening for my death
+                        // Otherwise it doesn't matter
+                        tx_death.send(()).unwrap();
+                        break;
+                    }
+                }
+
+                // Drain notify channel
+                while rx_notify.try_recv().is_ok() {}
+            }
+        });
+
+        PromptThread {
+            send: tx_notify,
+            recv: rx_prompt,
+            death: rx_death,
+            path: path,
+            cached: cached,
+            alive: true,
+        }
+    }
+
+    pub fn is_alive(&mut self) -> bool {
+        if self.death.try_recv().is_ok() {
+            self.alive = false;
+        }
+
+        self.alive
+    }
+
+    fn revive(&mut self, make_prompt: &Fn() -> PromptBuffer) {
+        *self = PromptThread::new(self.path.clone(), make_prompt)
+    }
+
+    pub fn get(&mut self, make_prompt: &Fn() -> PromptBuffer) -> String {
+        if !self.is_alive() {
+            self.revive(make_prompt);
+        }
+
+        self.send.send(()).unwrap();
+
+        let mut timer = Timer::new().unwrap();
+        let timeout = timer.oneshot(Duration::milliseconds(100));
+
+        loop {
+            let resp = self.recv.try_recv();
+
+            if resp.is_ok() {
+                // We got a good response
+                let mut text = resp.unwrap();
+
+                loop {
+                    match self.recv.try_recv() {
+                        Ok(t) => text = t,
+                        Err(_) => break
+                    }
+                }
+
+                self.cached = text;
+                return self.cached.clone();
+            }
+
+            // We ran out of time!
+            if timeout.try_recv().is_ok() {
+                return self.cached.clone();
+            }
+
+            timer::sleep(Duration::milliseconds(10));
+        }
+    }
+}

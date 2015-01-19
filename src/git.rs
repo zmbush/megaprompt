@@ -1,8 +1,9 @@
 extern crate git2;
 extern crate term;
 
-use prompt_buffer;
-use prompt_buffer::{PromptLine, PromptBufferPlugin, PromptLineBuilder};
+use prompt_buffer::escape;
+use prompt_buffer::buffer::PromptBufferPlugin;
+use prompt_buffer::line::{PromptLine, PromptLineBuilder};
 use git2::{Repository, Error, StatusOptions, STATUS_WT_NEW};
 use std::{os, fmt};
 use term::color;
@@ -251,7 +252,7 @@ impl GitPlugin {
             buffer.push(PromptLineBuilder::new_free()
                 .indent()
                 .block(&format!("{}{} {}",
-                    prompt_buffer::reset(),
+                    escape::reset(),
                     String::from_utf8_lossy(
                         try!(
                             try!(
@@ -281,8 +282,8 @@ impl GitPlugin {
                     (Some(name), None) => name,
                     (Some(name), Some(remote)) => format!("{}{} -> {}{}",
                         name,
-                        prompt_buffer::reset(),
-                        prompt_buffer::col(color::MAGENTA),
+                        escape::reset(),
+                        escape::col(color::MAGENTA),
                         remote),
                     _ => "Unknown branch state".to_string()
                 }, color::CYAN)

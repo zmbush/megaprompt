@@ -1,7 +1,8 @@
 extern crate time;
 
-use prompt_buffer;
-use prompt_buffer::{PromptBufferPlugin, PromptLine, PromptLineBuilder};
+use prompt_buffer::escape;
+use prompt_buffer::buffer::PromptBufferPlugin;
+use prompt_buffer::line::{PromptLine, PromptLineBuilder};
 use std::io::fs::PathExtensions;
 use std::io::{BufferedReader, File};
 use std::num::from_i64;
@@ -125,10 +126,10 @@ impl PromptBufferPlugin for DueDatePlugin {
                         };
 
                         due_phrase = format!("{}{} {}: {}{}{}",
-                            prompt_buffer::col(color::MAGENTA),
+                            escape::col(color::MAGENTA),
                             title.trim(),
                             temporal.trim(),
-                            prompt_buffer::col(color),
+                            escape::col(color),
                             due_phrase.trim(),
                             postfix
                         );

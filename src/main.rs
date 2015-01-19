@@ -4,7 +4,8 @@ extern crate term;
 extern crate git2;
 extern crate prompt_buffer;
 
-use prompt_buffer::PromptBuffer;
+use prompt_buffer::thread::PromptThread;
+use prompt_buffer::buffer::PromptBuffer;
 
 use std::collections::HashMap;
 use std::io::{
@@ -18,7 +19,6 @@ use std::io::{
     process,
     stdio,
     timer,
-    Timer,
     IoErrorKind
 };
 use std::io::fs::PathExtensions;
@@ -27,8 +27,6 @@ use std::io::net::pipe::{
     UnixStream,
 };
 use std::os;
-use std::sync::mpsc::{self, Sender, Receiver};
-use std::thread;
 use std::time::Duration;
 
 mod git;
@@ -73,107 +71,6 @@ macro_rules! sock_try {
     };
 }
 
-struct PromptThread {
-    send: Sender<()>,
-    recv: Receiver<String>,
-    death: Receiver<()>,
-    path: Path,
-    cached: String,
-    alive: bool
-}
-
-impl PromptThread {
-    fn new(path: Path) -> PromptThread {
-        let (tx_notify, rx_notify) = mpsc::channel();
-        let (tx_prompt, rx_prompt) = mpsc::channel();
-        let (tx_death, rx_death) = mpsc::channel();
-
-        let p = path.clone();
-        thread::Builder::new().name(format!("{}", path.display())).spawn(move || {
-            let mut prompt = get_prompt();
-            prompt.set_path(p);
-            let mut timer = Timer::new().unwrap();
-
-            loop {
-                let timeout = timer.oneshot(Duration::minutes(10));
-
-                select! {
-                    _ = rx_notify.recv() => {
-                        tx_prompt.send(prompt.to_string()).unwrap();
-                    },
-                    _ = timeout.recv() => {
-                        // Assume someone is listening for my death
-                        // Otherwise it doesn't matter
-                        tx_death.send(()).unwrap();
-                        break;
-                    }
-                }
-
-                // Drain notify channel
-                while rx_notify.try_recv().is_ok() {}
-            }
-        });
-
-        PromptThread {
-            send: tx_notify,
-            recv: rx_prompt,
-            death: rx_death,
-            path: path,
-            cached: get_prompt().to_string_ext(true),
-            alive: true
-        }
-    }
-
-    fn is_alive(&mut self) -> bool {
-        if self.death.try_recv().is_ok() {
-            self.alive = false;
-        }
-
-        self.alive
-    }
-
-    fn revive(&mut self) {
-        *self = PromptThread::new(self.path.clone());
-    }
-
-    fn get(&mut self) -> String {
-        if !self.is_alive() {
-            self.revive();
-        }
-
-        self.send.send(()).unwrap();
-
-        let mut timer = Timer::new().unwrap();
-        let timeout = timer.oneshot(Duration::milliseconds(100));
-
-        loop {
-            let resp = self.recv.try_recv();
-
-            if resp.is_ok() {
-                // We got a good response
-                let mut text = resp.unwrap();
-
-                loop {
-                    match self.recv.try_recv() {
-                        Ok(t) => text = t,
-                        Err(_) => break
-                    }
-                }
-
-                self.cached = text;
-                return self.cached.clone();
-            }
-
-            // We ran out of time!
-            if timeout.try_recv().is_ok() {
-                return self.cached.clone();
-            }
-
-            timer::sleep(Duration::milliseconds(10));
-        }
-    }
-}
-
 fn main() {
     let stdout_path = Path::new("/var/log/megaprompt/current.out");
     let stderr_path = Path::new("/var/log/megaprompt/current.err");
@@ -213,7 +110,7 @@ fn main() {
 
             if !threads.contains_key(&output) {
                 println!("+ Add thread {}", output.display());
-                threads.insert(output.clone(), PromptThread::new(output.clone()));
+                threads.insert(output.clone(), PromptThread::new(output.clone(), &get_prompt));
             }
 
             for path in threads.keys() {
@@ -222,7 +119,7 @@ fn main() {
 
             let mut thr = threads.get_mut(&output).unwrap();
 
-            sock_try!(write!(c, "{}", thr.get()));
+            sock_try!(write!(c, "{}", thr.get(&get_prompt)));
 
             println!("");
 
