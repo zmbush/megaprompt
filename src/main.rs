@@ -2,6 +2,7 @@
 #![deny(unused_parens, unused_variables, unused_mut)]
 extern crate term;
 extern crate git2;
+extern crate prompt_buffer;
 
 use prompt_buffer::PromptBuffer;
 
@@ -30,7 +31,6 @@ use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
 use std::time::Duration;
 
-mod prompt_buffer;
 mod git;
 mod due_date;
 

@@ -3,6 +3,7 @@ name = "Megaprompt"
 version = "0.1.0"
 dependencies = [
  "git2 0.1.11 (git+https://github.com/alexcrichton/git2-rs)",
+ "prompt_buffer 0.0.1",
  "term 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -14,7 +15,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "gcc"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -35,7 +36,7 @@ dependencies = [
  "libssh2-sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libz-sys 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl-sys 0.2.16 (registry+https://github.com/rust-lang/crates.io-index)",
- "pkg-config 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pkg-config 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -53,7 +54,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libz-sys 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl-sys 0.2.16 (registry+https://github.com/rust-lang/crates.io-index)",
- "pkg-config 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pkg-config 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -61,7 +62,7 @@ name = "libz-sys"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "pkg-config 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pkg-config 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -83,18 +84,25 @@ version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libressl-pnacl-sys 2.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "pkg-config 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pkg-config 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "pkg-config"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "pnacl-build-helper"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "prompt_buffer"
+version = "0.0.1"
+dependencies = [
+ "term 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "regex"
@@ -119,7 +127,7 @@ name = "time"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "gcc 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gcc 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

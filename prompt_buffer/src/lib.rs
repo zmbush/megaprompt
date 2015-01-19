@@ -1,3 +1,5 @@
+extern crate term;
+
 use std::fmt;
 use std::cmp;
 use std::os;
