@@ -286,3 +286,18 @@ impl PromptBuffer {
 pub trait PromptBufferPlugin {
     fn run(&mut self, path: &Path, lines: &mut Vec<PromptLine>);
 }
+
+#[test]
+fn test_prompt_lines() {
+    assert_eq!(PromptBuffer::get_line(TOP | BOTTOM | LEFT | RIGHT), '┼');
+    assert_eq!(PromptBuffer::get_line(TOP | BOTTOM | LEFT        ), '┤');
+    assert_eq!(PromptBuffer::get_line(TOP | BOTTOM        | RIGHT), '├');
+    assert_eq!(PromptBuffer::get_line(TOP | BOTTOM               ), '│');
+    assert_eq!(PromptBuffer::get_line(TOP          | LEFT | RIGHT), '┴');
+    assert_eq!(PromptBuffer::get_line(TOP          | LEFT        ), '┘');
+    assert_eq!(PromptBuffer::get_line(TOP                 | RIGHT), '└');
+    assert_eq!(PromptBuffer::get_line(      BOTTOM | LEFT        ), '┐');
+    assert_eq!(PromptBuffer::get_line(      BOTTOM        | RIGHT), '┌');
+    assert_eq!(PromptBuffer::get_line(      BOTTOM | LEFT | RIGHT), '┬');
+    assert_eq!(PromptBuffer::get_line(               LEFT | RIGHT), '─');
+}
