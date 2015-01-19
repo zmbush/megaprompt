@@ -1,5 +1,17 @@
-#![deny(unused_must_use, unused_imports)]
-#![deny(unused_parens, unused_variables, unused_mut)]
+#![deny(
+    unused_allocation,
+    unused_attributes,
+    unused_casts,
+    unused_import_braces,
+    unused_imports,
+    unused_must_use,
+    unused_mut,
+    unused_parens,
+    unused_results,
+    unused_unsafe,
+    unused_variables,
+)]
+
 extern crate term;
 extern crate git2;
 extern crate prompt_buffer;
@@ -79,8 +91,8 @@ fn main() {
 
     let args = os::args();
     if args.len() > 1 { // Daemon process
-        stdio::set_stdout(Box::new(File::create(&stdout_path)));
-        stdio::set_stderr(Box::new(File::create(&stderr_path)));
+        let _ = stdio::set_stdout(Box::new(File::create(&stdout_path)));
+        let _ = stdio::set_stderr(Box::new(File::create(&stderr_path)));
 
         let last_modified = exe_changed();
         let mut threads: HashMap<Path, PromptThread> = HashMap::new();
@@ -104,13 +116,13 @@ fn main() {
             for path in keys.iter() {
                 if !threads.get_mut(path).unwrap().is_alive() {
                     println!("- Remove thread {}", path.display());
-                    threads.remove(path);
+                    let _ = threads.remove(path);
                 }
             }
 
             if !threads.contains_key(&output) {
                 println!("+ Add thread {}", output.display());
-                threads.insert(output.clone(), PromptThread::new(output.clone(), &get_prompt));
+                let _ = threads.insert(output.clone(), PromptThread::new(output.clone(), &get_prompt));
             }
 
             for path in threads.keys() {

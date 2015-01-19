@@ -1,7 +1,7 @@
 extern crate time;
 
 use prompt_buffer::escape;
-use prompt_buffer::buffer::PromptBufferPlugin;
+use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
 use prompt_buffer::line::{PromptLine, PromptLineBuilder};
 use std::io::fs::PathExtensions;
 use std::io::{BufferedReader, File};
@@ -62,7 +62,7 @@ impl TimePeriod {
 }
 
 impl PromptBufferPlugin for DueDatePlugin {
-    fn run(&mut self, path: &Path, lines: &mut Vec<PromptLine>) {
+    fn run(&mut self, _: &PluginSpeed, path: &Path, lines: &mut Vec<PromptLine>) {
         for mut path in PathTraversal::new(path) {
             path.push(".due");
 

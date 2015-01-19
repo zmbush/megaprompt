@@ -2,9 +2,9 @@ extern crate git2;
 extern crate term;
 
 use prompt_buffer::escape;
-use prompt_buffer::buffer::PromptBufferPlugin;
+use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
 use prompt_buffer::line::{PromptLine, PromptLineBuilder};
-use git2::{Repository, Error, StatusOptions, STATUS_WT_NEW};
+use git2::{Repository, Error, StatusOptions};
 use std::{os, fmt};
 use term::color;
 use std::ops::Deref;
@@ -295,14 +295,17 @@ impl GitPlugin {
 }
 
 impl PromptBufferPlugin for GitPlugin {
-    fn run(&mut self, path: &Path, lines: &mut Vec<PromptLine>) {
+    fn run(&mut self, speed: &PluginSpeed, path: &Path, lines: &mut Vec<PromptLine>) {
         if self.path != *path || self.repo.is_none() {
             self.path = path.clone();
             self.repo = get_git(&self.path);
         }
 
-        let st = self.status(lines, path).ok().unwrap_or(false);
+        let st = match *speed {
+            PluginSpeed::Slow => self.status(lines, path).ok().unwrap_or(false),
+            _ => false,
+        };
         let out = self.outgoing(lines, st).ok().unwrap_or(false);
-        self.end(lines, st || out).ok();
+        let _ = self.end(lines, st || out).ok();
     }
 }

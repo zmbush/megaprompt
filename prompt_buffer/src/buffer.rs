@@ -7,6 +7,27 @@ use term::color;
 use self::lines::*;
 use line::{PromptLineType, PromptLine, PromptLineBuilder, PromptBox};
 
+/// Defines the speed at which to run the to_string method
+pub enum PluginSpeed {
+    /// Don't run plugin
+    Ignored,
+
+    /// Don't do anything that might be slow
+    Fast,
+
+    /// Do whatever you want (still try to be fast as possible)
+    Slow
+}
+
+impl PluginSpeed {
+    fn is_ignored(&self) -> bool {
+        match *self {
+            PluginSpeed::Ignored => true,
+            _ => false
+        }
+    }
+}
+
 mod lines {
     pub const TOP       : i16 = 8;
     pub const BOTTOM    : i16 = 4;
@@ -80,17 +101,17 @@ impl PromptBuffer {
 
     /// Returns the result of the prompt
     ///
-    /// Allows specifying wether or not plugins should run with the 'fast' parameter
-    pub fn to_string_ext(&mut self, fast: bool) -> String {
+    /// Allows specifying wanted plugin speed
+    pub fn to_string_ext(&mut self, speed: PluginSpeed) -> String {
         let mut retval = String::new();
         let mut lines = Vec::new();
 
         self.start(&mut lines);
 
-        if !fast {
+        if !speed.is_ignored() {
             let mut pl = self.plugins.as_mut_slice();
             for i in 0 .. pl.len() {
-                pl[i].run(&self.path, &mut lines);
+                pl[i].run(&speed, &self.path, &mut lines);
             }
         }
 
@@ -159,7 +180,7 @@ impl PromptBuffer {
 
     /// Returns the prompt with plugins run
     pub fn to_string(&mut self) -> String {
-        self.to_string_ext(false)
+        self.to_string_ext(PluginSpeed::Slow)
     }
 
     /// Print a result with the plugins
@@ -169,7 +190,7 @@ impl PromptBuffer {
 
     /// Print a result while skipping all plugins
     pub fn print_fast(&mut self) {
-        println!("{}", self.to_string_ext(true));
+        println!("{}", self.to_string_ext(PluginSpeed::Fast));
     }
 }
 
@@ -178,5 +199,5 @@ pub trait PromptBufferPlugin {
     /// Should append as many PromptLines as it wants to the lines Vec
     ///
     /// The path can be used to provide context if necessary
-    fn run(&mut self, path: &Path, lines: &mut Vec<PromptLine>);
+    fn run(&mut self, speed: &PluginSpeed, path: &Path, lines: &mut Vec<PromptLine>);
 }

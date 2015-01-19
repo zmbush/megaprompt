@@ -9,7 +9,7 @@ use std::time::Duration;
 use std::thread;
 use std::sync::mpsc::{self, Sender, Receiver};
 
-use buffer::PromptBuffer;
+use buffer::{PromptBuffer, PluginSpeed};
 
 /// Stores information about prompt threads
 pub struct PromptThread {
@@ -30,7 +30,7 @@ impl PromptThread {
 
         let p = path.clone();
         let mut prompt = make_prompt();
-        let cached = prompt.to_string_ext(true);
+        let cached = prompt.to_string_ext(PluginSpeed::Fast);
         thread::Builder::new().name(format!("{}", path.display())).spawn(move || {
             prompt.set_path(p);
             let mut timer = Timer::new().unwrap();
