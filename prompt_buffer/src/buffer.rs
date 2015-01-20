@@ -8,6 +8,7 @@ use self::lines::*;
 use line::{PromptLineType, PromptLine, PromptLineBuilder, PromptBox};
 
 /// Defines the speed at which to run the to_string method
+#[derive(Copy)]
 pub enum PluginSpeed {
     /// Don't run plugin
     Ignored,
