@@ -81,8 +81,8 @@ impl PromptBuffer {
 
     fn start(&self, lines: &mut Vec<PromptLine>) {
         lines.push(PromptLineBuilder::new()
-            .block(&"\\w")
-            .block(&"\\H")
+            .block("\\w")
+            .block("\\H")
             .build());
     }
 

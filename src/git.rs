@@ -164,7 +164,7 @@ impl GitPlugin {
                 if statuses.len() <= 0 { return Ok(false) }
 
                 buffer.push(PromptLineBuilder::new()
-                    .colored_block(&"Git Status", color::CYAN)
+                    .colored_block("Git Status", color::CYAN)
                     .build());
 
                 for stat in statuses.iter() {
@@ -195,11 +195,11 @@ impl GitPlugin {
                     });
 
                     line = match status.index {
-                        StatusTypes::Clean => line.colored_block(&val, file_state_color(status.workdir)),
+                        StatusTypes::Clean => line.colored_block(val, file_state_color(status.workdir)),
                         _ => match status.workdir {
                             StatusTypes::Clean | StatusTypes::Untracked =>
-                                line.bold_colored_block(&val, file_state_color(status.index)),
-                            _ => line.bold_colored_block(&val, color::RED)
+                                line.bold_colored_block(val, file_state_color(status.index)),
+                            _ => line.bold_colored_block(val, color::RED)
                         }
                     };
 
@@ -243,7 +243,7 @@ impl GitPlugin {
 
             if !log_shown {
                 buffer.push(PromptLineBuilder::new()
-                    .colored_block(&"Git Outgoing", color::CYAN)
+                    .colored_block("Git Outgoing", color::CYAN)
                     .indent_by(if has_status { 1 } else { 0 })
                     .build());
                 log_shown = true;
@@ -251,7 +251,7 @@ impl GitPlugin {
 
             buffer.push(PromptLineBuilder::new_free()
                 .indent()
-                .block(&format!("{}{} {}",
+                .block(format!("{}{} {}",
                     escape::reset(),
                     String::from_utf8_lossy(
                         try!(

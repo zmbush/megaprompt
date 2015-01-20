@@ -135,7 +135,7 @@ impl PromptBufferPlugin for DueDatePlugin {
                         );
 
                         lines.push(PromptLineBuilder::new()
-                            .block(&due_phrase)
+                            .block(due_phrase)
                             .build());
                     },
                     Err(_) => {}
