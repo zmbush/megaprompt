@@ -46,8 +46,8 @@ mod due_date;
 
 fn get_prompt() -> PromptBuffer {
     let mut buf = PromptBuffer::new();
-    buf.add_plugin(Box::new(due_date::DueDatePlugin::new()));
-    buf.add_plugin(Box::new(git::GitPlugin::new()));
+    buf.add_plugin(due_date::DueDatePlugin::new());
+    buf.add_plugin(git::GitPlugin::new());
 
     buf
 }

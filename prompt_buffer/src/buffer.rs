@@ -89,8 +89,8 @@ impl PromptBuffer {
     /// Adds a plugin to the prompt buffer
     ///
     /// They will be executed in order
-    pub fn add_plugin(&mut self, plugin: Box<PromptBufferPlugin+Send>) {
-        self.plugins.push(plugin);
+    pub fn add_plugin<T: PromptBufferPlugin+Send>(&mut self, plugin: T) {
+        self.plugins.push(Box::new(plugin));
     }
 
     /// Store the new path for the PromptBuffer.
