@@ -190,3 +190,8 @@ fn main() {
         }
     }
 }
+
+#[test]
+fn test_main_does_not_error() {
+    main();
+}
