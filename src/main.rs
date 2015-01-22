@@ -1,7 +1,6 @@
 #![deny(
     unused_allocation,
     unused_attributes,
-    unused_casts,
     unused_import_braces,
     unused_imports,
     unused_must_use,
@@ -10,6 +9,8 @@
     unused_results,
     unused_unsafe,
     unused_variables,
+
+    dead_code,
 )]
 
 extern crate term;

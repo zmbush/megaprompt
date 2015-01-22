@@ -5,7 +5,6 @@ use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
 use prompt_buffer::line::{PromptLine, PromptLineBuilder};
 use std::io::fs::PathExtensions;
 use std::io::{BufferedReader, File};
-use std::num::from_i64;
 use term::color;
 
 pub struct DueDatePlugin;
@@ -44,18 +43,25 @@ struct TimePeriod {
     plural: String
 }
 
-impl TimePeriod {
-    fn new(singular: &str) -> TimePeriod {
-        let mut p = singular.to_string();
+trait ToTimePeriod {
+    fn as_period(&self) -> TimePeriod;
+}
+
+impl ToTimePeriod for str {
+    fn as_period(&self) -> TimePeriod {
+        let mut p = self.to_string();
         p.push('s');
 
-        TimePeriod::new_unique(singular, p.as_slice())
+        (self, p.as_slice()).as_period()
     }
+}
 
-    fn new_unique(singular: &str, plural: &str) -> TimePeriod {
+impl<'s> ToTimePeriod for (&'s str, &'s str) {
+    fn as_period(&self) -> TimePeriod {
+        let (s, p) = *self;
         TimePeriod {
-            singular: singular.to_string(),
-            plural: plural.to_string()
+            singular: s.to_string(),
+            plural: p.to_string()
         }
     }
 }
@@ -77,19 +83,19 @@ impl PromptBufferPlugin for DueDatePlugin {
 
                         let s = due.sec - now.sec;
                         let (seconds, past_due) = if s < 0 { (-s, true) } else { (s, false) };
-                        let mut seconds: f32 = from_i64(seconds).unwrap_or(0.0);
+                        let mut seconds: f32 = seconds as f32;
 
                         let ups: [f32; 9] = [10.0, 10.0, 10.0, 365.0/30.0, 30.0, 24.0, 60.0, 60.0, 1.0];
                         let time_periods = [
-                            TimePeriod::new_unique("millenium", "millenia"),
-                            TimePeriod::new_unique("century", "centuries"),
-                            TimePeriod::new("decade"),
-                            TimePeriod::new("year"),
-                            TimePeriod::new("month"),
-                            TimePeriod::new("day"),
-                            TimePeriod::new("hour"),
-                            TimePeriod::new("minute"),
-                            TimePeriod::new("second"),
+                            ("millenium", "millenia").as_period(),
+                            ("century", "centuries").as_period(),
+                            "decade".as_period(),
+                            "year".as_period(),
+                            "month".as_period(),
+                            "day".as_period(),
+                            "hour".as_period(),
+                            "minute".as_period(),
+                            "second".as_period(),
                         ];
 
                         let times = range(0, ups.len()).map(|i| {
