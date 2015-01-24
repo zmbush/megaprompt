@@ -106,7 +106,7 @@ impl PromptLineBuilder {
         self.indent_by(1)
     }
 
-    fn add_block<T: fmt::String>(mut self, s: T, c: u16, bold: bool) -> PromptLineBuilder {
+    fn add_block<T: fmt::Display>(mut self, s: T, c: u16, bold: bool) -> PromptLineBuilder {
         self.line.parts.push(
             PromptBox {
                 color: c,
@@ -119,17 +119,17 @@ impl PromptLineBuilder {
     }
 
     /// Adds a block with a given text (uses the default color of color::MAGENTA)
-    pub fn block<T: fmt::String>(self, s: T) -> PromptLineBuilder {
+    pub fn block<T: fmt::Display>(self, s: T) -> PromptLineBuilder {
         self.add_block(s, color::MAGENTA, false)
     }
 
     /// Adds a block with a given text and color
-    pub fn colored_block<T: fmt::String>(self, s: T, c: u16) -> PromptLineBuilder {
+    pub fn colored_block<T: fmt::Display>(self, s: T, c: u16) -> PromptLineBuilder {
         self.add_block(s, c, false)
     }
 
     /// Adds an emboldened block with a given text and color
-    pub fn bold_colored_block<T: fmt::String>(self, s: T, c: u16) -> PromptLineBuilder {
+    pub fn bold_colored_block<T: fmt::Display>(self, s: T, c: u16) -> PromptLineBuilder {
         self.add_block(s, c, true)
     }
 

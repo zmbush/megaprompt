@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-fn col_cmd<T: fmt::String>(c: T) -> String{
+fn col_cmd<T: fmt::Display>(c: T) -> String {
     format!("\\[{}[{}\\]", '\x1B', c)
 }
 
