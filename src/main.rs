@@ -21,7 +21,7 @@ use prompt_buffer::thread::PromptThread;
 use prompt_buffer::buffer::PromptBuffer;
 
 use std::collections::HashMap;
-use std::io::{
+use std::old_io::{
     self,
     Acceptor,
     Command,
@@ -34,8 +34,8 @@ use std::io::{
     timer,
     IoErrorKind
 };
-use std::io::fs::PathExtensions;
-use std::io::net::pipe::{
+use std::old_io::fs::PathExtensions;
+use std::old_io::net::pipe::{
     UnixListener,
     UnixStream,
 };
@@ -71,7 +71,7 @@ fn current_pid(pid_path: &Path) -> Result<i32, IoError> {
 
     match contents.parse() {
         Some(value) => Ok(value),
-        None => Err(io::standard_error(IoErrorKind::InvalidInput))
+        None => Err(old_io::standard_error(IoErrorKind::InvalidInput))
     }
 }
 

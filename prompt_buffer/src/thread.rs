@@ -4,7 +4,7 @@
 //!
 //! Thred will run for 10 minutes after the last request, to avoid
 //! leaking too many threads.
-use std::io::{timer, Timer};
+use std::old_io::{timer, Timer};
 use std::time::Duration;
 use std::thread;
 use std::sync::mpsc::{self, Sender, Receiver};

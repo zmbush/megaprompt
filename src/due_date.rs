@@ -3,8 +3,8 @@ extern crate time;
 use prompt_buffer::escape;
 use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
 use prompt_buffer::line::{PromptLine, PromptLineBuilder};
-use std::io::fs::PathExtensions;
-use std::io::{BufferedReader, File};
+use std::old_io::fs::PathExtensions;
+use std::old_io::{BufferedReader, File};
 use term::color;
 
 pub struct DueDatePlugin;
