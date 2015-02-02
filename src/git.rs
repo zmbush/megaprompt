@@ -19,7 +19,7 @@ enum StatusTypes {
     Clean
 }
 
-#[allow(unstable)] impl fmt::String for StatusTypes {
+impl fmt::Display for StatusTypes {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match *self {
             StatusTypes::Clean => " ",
@@ -60,7 +60,7 @@ impl GitStatus {
     }
 }
 
-#[allow(unstable)] impl fmt::String for GitStatus {
+impl fmt::Display for GitStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.index, self.workdir)
     }

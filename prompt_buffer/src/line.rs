@@ -37,7 +37,7 @@ impl PromptBox {
     }
 }
 
-impl fmt::String for PromptBox {
+impl fmt::Display for PromptBox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}{}", if self.is_bold { bcol(self.color) } else { col(self.color) }, self.text, reset())
     }

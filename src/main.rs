@@ -11,6 +11,7 @@
     unused_variables,
 
     dead_code,
+    deprecated
 )]
 
 extern crate term;

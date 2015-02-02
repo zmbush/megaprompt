@@ -99,7 +99,7 @@ impl PromptBufferPlugin for DueDatePlugin {
                         ];
 
                         let times = range(0, ups.len()).map(|i| {
-                            ups.slice_from(i).iter().fold(1.0, |a, &b| a * b)
+                            ups[i..].iter().fold(1.0, |a, &b| a * b)
                         });
 
                         let accuracy = 2u8;
