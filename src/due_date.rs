@@ -5,6 +5,7 @@ use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
 use prompt_buffer::line::{PromptLine, PromptLineBuilder};
 use std::old_io::fs::PathExtensions;
 use std::old_io::{BufferedReader, File};
+use std::num::Float;
 use term::color;
 
 pub struct DueDatePlugin;
@@ -113,7 +114,7 @@ impl PromptBufferPlugin for DueDatePlugin {
                                 let amt = seconds / amount - (rem / amount);
                                 seconds = rem;
                                 let name = if amt > 1.0 { &name.plural } else { &name.singular };
-                                due_phrase = format!("{}{} {} ", due_phrase, amt, name);
+                                due_phrase = format!("{}{} {} ", due_phrase, amt.round() as i32, name);
                             }
 
                             if count >= accuracy {
