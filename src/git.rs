@@ -76,9 +76,9 @@ struct BranchInfo {
 }
 
 fn git_branch(repo: &Repository) -> Result<BranchInfo, Error> {
-    let mut branches = repo.branches(None).ok().expect("Unable to load branches");
+    let branches = repo.branches(None).ok().expect("Unable to load branches");
 
-    for (mut branch, _) in branches {
+    for (branch, _) in branches {
         if !branch.is_head() {
             continue;
         }

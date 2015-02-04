@@ -23,17 +23,14 @@ use prompt_buffer::buffer::PromptBuffer;
 
 use std::collections::HashMap;
 use std::old_io::{
-    self,
     Acceptor,
     Command,
     File,
     fs,
-    IoError,
     Listener,
     process,
     stdio,
     timer,
-    IoErrorKind
 };
 use std::old_io::fs::PathExtensions;
 use std::old_io::net::pipe::{
@@ -42,6 +39,7 @@ use std::old_io::net::pipe::{
 };
 use std::os;
 use std::time::Duration;
+use std::error::Error;
 
 mod git;
 mod due_date;
@@ -66,14 +64,10 @@ fn exe_changed() -> u64 {
     }
 }
 
-fn current_pid(pid_path: &Path) -> Result<i32, IoError> {
+fn current_pid(pid_path: &Path) -> Result<i32, Box<Error>> {
     let mut file = try!(File::open(pid_path));
     let contents = try!(file.read_to_string());
-
-    match contents.parse() {
-        Some(value) => Ok(value),
-        None => Err(old_io::standard_error(IoErrorKind::InvalidInput))
-    }
+    Ok(try!(contents.parse()))
 }
 
 macro_rules! sock_try {
