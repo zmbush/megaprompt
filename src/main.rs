@@ -37,7 +37,7 @@ use std::old_io::net::pipe::{
     UnixListener,
     UnixStream,
 };
-use std::os;
+use std::env;
 use std::time::Duration;
 use std::error::Error;
 
@@ -53,14 +53,14 @@ fn get_prompt() -> PromptBuffer {
 }
 
 fn exe_changed() -> u64 {
-    match os::self_exe_name() {
-        Some(exe_path) => {
+    match env::current_exe() {
+        Ok(exe_path) => {
             match exe_path.stat() {
                 Ok(s) => s.modified,
                 _ => 0u64
             }
         },
-        None => 0u64
+        Err(_) => 0u64
     }
 }
 
@@ -88,7 +88,7 @@ enum RunMode {
 
 #[allow(dead_code)]
 fn main() {
-    let args = os::args();
+    let args: Vec<String> = env::args().map(|s| s.into_string().unwrap()).collect();
     run(match args.len() {
         2 => RunMode::Daemon,
         1 => RunMode::Main,
@@ -159,7 +159,7 @@ fn do_main(socket_path: &Path) {
     match process::Process::kill(current_pid, 0) {
         Err(_) => {
             // We need to start up the daemon again
-            let child = Command::new(os::args().get(0).as_slice()[0])
+            let child = Command::new(env::args().next().unwrap().into_string().unwrap().as_slice())
                 .arg("daemon")
                 .detached().spawn().unwrap();
 
@@ -189,7 +189,7 @@ fn do_main(socket_path: &Path) {
         Ok(stream) => stream
     };
 
-    write!(&mut stream, "{}", os::make_absolute(&Path::new(".")).unwrap().display()).unwrap();
+    write!(&mut stream, "{}", env::current_dir().unwrap().display()).unwrap();
     stream.close_write().unwrap();
     stream.set_read_timeout(Some(200));
     match stream.read_to_string() {

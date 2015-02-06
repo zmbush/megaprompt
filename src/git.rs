@@ -5,7 +5,7 @@ use prompt_buffer::escape;
 use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
 use prompt_buffer::line::{PromptLine, PromptLineBuilder};
 use git2::{Repository, Error, StatusOptions};
-use std::{os, fmt};
+use std::{fmt, env};
 use term::color;
 use std::ops::Deref;
 
@@ -133,7 +133,7 @@ impl GitPlugin {
     pub fn new() -> GitPlugin {
         GitPlugin {
             repo: None,
-            path: os::make_absolute(&Path::new(".")).unwrap()
+            path: env::current_dir().unwrap()
         }
     }
 

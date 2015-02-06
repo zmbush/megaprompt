@@ -2,10 +2,10 @@
 name = "Megaprompt"
 version = "0.1.0"
 dependencies = [
- "git2 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "git2 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "prompt_buffer 0.0.1",
- "term 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "time 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "term 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -20,12 +20,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "git2"
-version = "0.1.13"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libgit2-sys 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "url 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libgit2-sys 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "url 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -33,7 +33,7 @@ name = "kernel32-sys"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "winapi 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -43,7 +43,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "libgit2-sys"
-version = "0.1.11"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libssh2-sys 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -111,27 +111,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "prompt_buffer"
 version = "0.0.1"
 dependencies = [
- "term 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "term 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "rustc-serialize"
-version = "0.2.11"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "term"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "kernel32-sys 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "winapi 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "time"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "gcc 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -140,15 +140,15 @@ dependencies = [
 
 [[package]]
 name = "url"
-version = "0.2.18"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "matches 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "rustc-serialize 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "winapi"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 

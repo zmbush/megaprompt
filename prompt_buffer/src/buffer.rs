@@ -1,6 +1,6 @@
 //! The base class
-use std::os;
 use std::cmp;
+use std::env;
 
 use term::color;
 
@@ -50,7 +50,7 @@ impl PromptBuffer {
     pub fn new() -> PromptBuffer {
         PromptBuffer {
             plugins: Vec::new(),
-            path: os::make_absolute(&Path::new(".")).unwrap()
+            path: env::current_dir().unwrap()
         }
     }
 

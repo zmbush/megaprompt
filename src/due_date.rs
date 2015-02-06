@@ -75,7 +75,7 @@ impl PromptBufferPlugin for DueDatePlugin {
             if path.is_file() {
                 let mut reader = BufferedReader::new(File::open(&path));
 
-                let mut line = |&mut: s: &str| { reader.read_line().unwrap_or(s.to_string()) };
+                let mut line = |s: &str| { reader.read_line().unwrap_or(s.to_string()) };
 
                 match time::strptime(line("").trim().as_slice(), "%a %b %d %H:%M:%S %Y") {
                     Ok(due_date) => {

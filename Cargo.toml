@@ -1,5 +1,4 @@
 [package]
-
 name = "Megaprompt"
 version = "0.1.0"
 authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
@@ -7,7 +6,7 @@ authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
 [dependencies]
 time = "*"
 term = "*"
-git2 = "*"
+git2 = "0.1"
 
 [dependencies.prompt_buffer]
 path = "prompt_buffer"
