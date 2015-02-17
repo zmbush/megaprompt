@@ -88,7 +88,7 @@ enum RunMode {
 
 #[allow(dead_code)]
 fn main() {
-    let args: Vec<String> = env::args().map(|s| s.into_string().unwrap()).collect();
+    let args: Vec<String> = env::args().collect();
     run(match args.len() {
         2 => RunMode::Daemon,
         1 => RunMode::Main,
@@ -159,7 +159,7 @@ fn do_main(socket_path: &Path) {
     match process::Process::kill(current_pid, 0) {
         Err(_) => {
             // We need to start up the daemon again
-            let child = Command::new(env::args().next().unwrap().into_string().unwrap().as_slice())
+            let child = Command::new(env::args().next().unwrap().as_slice())
                 .arg("daemon")
                 .detached().spawn().unwrap();
 
