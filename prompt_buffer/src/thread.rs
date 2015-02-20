@@ -53,7 +53,7 @@ impl PromptThread {
                 // Drain notify channel
                 while rx_notify.try_recv().is_ok() {}
             }
-        });
+        }).unwrap();
 
         PromptThread {
             send: tx_notify,

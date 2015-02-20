@@ -89,7 +89,7 @@ impl PromptBuffer {
     /// Adds a plugin to the prompt buffer
     ///
     /// They will be executed in order
-    pub fn add_plugin<T: PromptBufferPlugin+Send>(&mut self, plugin: T) {
+    pub fn add_plugin<T: PromptBufferPlugin+Send+'static>(&mut self, plugin: T) {
         self.plugins.push(Box::new(plugin));
     }
 
