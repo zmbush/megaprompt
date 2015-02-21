@@ -14,6 +14,15 @@
     deprecated
 )]
 
+#![feature(
+    core,
+    env,
+    io,
+    old_io,
+    old_path,
+    std_misc,
+)]
+
 extern crate term;
 extern crate git2;
 extern crate prompt_buffer;
