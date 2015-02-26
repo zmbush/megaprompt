@@ -8,6 +8,7 @@ use std::old_io::{timer, Timer};
 use std::time::Duration;
 use std::thread;
 use std::sync::mpsc::{self, Sender, Receiver};
+use std::path::PathBuf;
 
 use buffer::{PromptBuffer, PluginSpeed};
 
@@ -16,14 +17,14 @@ pub struct PromptThread {
     send: Sender<()>,
     recv: Receiver<String>,
     death: Receiver<()>,
-    path: Path,
+    path: PathBuf,
     cached: String,
     alive: bool,
 }
 
 impl PromptThread {
     /// Creates a new prompt thread for a given path
-    pub fn new(path: Path, make_prompt: &Fn() -> PromptBuffer) -> PromptThread {
+    pub fn new(path: PathBuf, make_prompt: &Fn() -> PromptBuffer) -> PromptThread {
         let (tx_notify, rx_notify) = mpsc::channel();
         let (tx_prompt, rx_prompt) = mpsc::channel();
         let (tx_death, rx_death) = mpsc::channel();

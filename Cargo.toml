@@ -6,7 +6,7 @@ authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
 [dependencies]
 time = "*"
 term = "*"
-git2 = "0.1"
+git2 = "0.2"
 
 [dependencies.prompt_buffer]
 path = "prompt_buffer"

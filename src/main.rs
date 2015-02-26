@@ -49,6 +49,8 @@ use std::old_io::net::pipe::{
 use std::env;
 use std::time::Duration;
 use std::error::Error;
+use std::fs::PathExt;
+use std::path::PathBuf;
 
 mod git;
 mod due_date;
@@ -64,9 +66,9 @@ fn get_prompt() -> PromptBuffer {
 fn exe_changed() -> u64 {
     match env::current_exe() {
         Ok(exe_path) => {
-            match exe_path.stat() {
-                Ok(s) => s.modified,
-                _ => 0u64
+            match exe_path.metadata() {
+                Ok(m) => m.modified(),
+                Err(_) => 0u64
             }
         },
         Err(_) => 0u64
@@ -113,7 +115,7 @@ fn do_daemon(socket_path: &Path) {
     let _ = stdio::set_stderr(Box::new(File::create(&stderr_path)));
 
     let last_modified = exe_changed();
-    let mut threads: HashMap<Path, PromptThread> = HashMap::new();
+    let mut threads: HashMap<PathBuf, PromptThread> = HashMap::new();
 
     if socket_path.exists() {
         fs::unlink(socket_path).unwrap();
@@ -127,10 +129,10 @@ fn do_daemon(socket_path: &Path) {
     for mut connection in stream.listen().incoming() {
         let c = &mut connection;
 
-        let output = Path::new(sock_try!(c.read_to_string()));
+        let output = PathBuf::new(&sock_try!(c.read_to_string()));
         println!("Preparing to respond to for {}", output.display());
 
-        let keys: Vec<Path> = threads.keys().map(|x| { x.clone() }).collect();
+        let keys: Vec<PathBuf> = threads.keys().map(|x| { x.clone() }).collect();
         for path in keys.iter() {
             if !threads.get_mut(path).unwrap().is_alive() {
                 println!("- Remove thread {}", path.display());

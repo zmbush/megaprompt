@@ -4,9 +4,17 @@ use prompt_buffer::escape;
 use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
 use prompt_buffer::line::{PromptLine, PromptLineBuilder};
 use std::old_io::fs::PathExtensions;
-use std::old_io::{BufferedReader, File};
 use std::num::Float;
 use term::color;
+use std::path::PathBuf;
+use std::fs::{
+    PathExt,
+    File
+};
+use std::io::{
+    BufReader,
+    BufRead
+};
 
 pub struct DueDatePlugin;
 
@@ -17,11 +25,11 @@ impl DueDatePlugin {
 }
 
 struct PathTraversal {
-    path: Path
+    path: PathBuf
 }
 
 impl PathTraversal {
-    fn new(p: &Path) -> PathTraversal {
+    fn new(p: &PathBuf) -> PathTraversal {
         let mut pat = p.clone();
         pat.push("dummy");
         PathTraversal {
@@ -31,9 +39,9 @@ impl PathTraversal {
 }
 
 impl Iterator for PathTraversal {
-    type Item = Path;
+    type Item = PathBuf;
 
-    fn next(&mut self) -> Option<Path> {
+    fn next(&mut self) -> Option<PathBuf> {
         if !self.path.pop() { return None; };
         Some(self.path.clone())
     }
@@ -68,14 +76,20 @@ impl<'s> ToTimePeriod for (&'s str, &'s str) {
 }
 
 impl PromptBufferPlugin for DueDatePlugin {
-    fn run(&mut self, _: &PluginSpeed, path: &Path, lines: &mut Vec<PromptLine>) {
+    fn run(&mut self, _: &PluginSpeed, path: &PathBuf, lines: &mut Vec<PromptLine>) {
         for mut path in PathTraversal::new(path) {
             path.push(".due");
 
             if path.is_file() {
-                let mut reader = BufferedReader::new(File::open(&path));
+                let mut reader = BufReader::new(File::open(&path).unwrap());
 
-                let mut line = |s: &str| { reader.read_line().unwrap_or(s.to_string()) };
+                let mut line = |s: &str| {
+                    let mut line = String::new();
+                    match reader.read_line(&mut line) {
+                        Ok(_) => line,
+                        Err(_) => s.to_string()
+                    }
+                };
 
                 match time::strptime(line("").trim().as_slice(), "%a %b %d %H:%M:%S %Y") {
                     Ok(due_date) => {

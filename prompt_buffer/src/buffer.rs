@@ -1,6 +1,7 @@
 //! The base class
 use std::cmp;
 use std::env;
+use std::path::PathBuf;
 
 use term::color;
 
@@ -42,7 +43,7 @@ mod lines {
 /// Knows how to format a serise of PromptLines in a pretty way
 pub struct PromptBuffer {
     plugins: Vec<Box<PromptBufferPlugin+Send>>,
-    path: Path
+    path: PathBuf
 }
 
 impl PromptBuffer {
@@ -96,7 +97,7 @@ impl PromptBuffer {
     /// Store the new path for the PromptBuffer.
     ///
     /// This is sent in as context to PromptBufferPlugins
-    pub fn set_path(&mut self, p: Path) {
+    pub fn set_path(&mut self, p: PathBuf) {
         self.path = p;
     }
 
@@ -200,5 +201,5 @@ pub trait PromptBufferPlugin {
     /// Should append as many PromptLines as it wants to the lines Vec
     ///
     /// The path can be used to provide context if necessary
-    fn run(&mut self, speed: &PluginSpeed, path: &Path, lines: &mut Vec<PromptLine>);
+    fn run(&mut self, speed: &PluginSpeed, path: &PathBuf, lines: &mut Vec<PromptLine>);
 }

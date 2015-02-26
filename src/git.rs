@@ -8,6 +8,7 @@ use git2::{Repository, Error, StatusOptions};
 use std::{fmt, env};
 use term::color;
 use std::ops::Deref;
+use std::path::{Path, PathBuf};
 
 enum StatusTypes {
     New,
@@ -126,7 +127,7 @@ fn git_branch(repo: &Repository) -> Result<BranchInfo, Error> {
 
 pub struct GitPlugin {
     repo: Option<Repository>,
-    path: Path
+    path: PathBuf
 }
 
 impl GitPlugin {
@@ -152,11 +153,11 @@ impl GitPlugin {
             .renames_head_to_index(true)
         ));
 
-        let make_path_relative = |&: current: Path| {
-            let mut fullpath = repo.workdir().unwrap();
+        let make_path_relative = |&: current: &Path| {
+            let mut fullpath = repo.workdir().unwrap().to_path_buf();
             fullpath.push(current);
 
-            fullpath.path_relative_from(path).unwrap()
+            fullpath.relative_from(path).unwrap().to_path_buf()
         };
 
         match st {
@@ -295,7 +296,7 @@ impl GitPlugin {
 }
 
 impl PromptBufferPlugin for GitPlugin {
-    fn run(&mut self, speed: &PluginSpeed, path: &Path, lines: &mut Vec<PromptLine>) {
+    fn run(&mut self, speed: &PluginSpeed, path: &PathBuf, lines: &mut Vec<PromptLine>) {
         if self.path != *path || self.repo.is_none() {
             self.path = path.clone();
             self.repo = get_git(&self.path);
