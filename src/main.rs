@@ -1,16 +1,14 @@
 #![deny(
     unused_allocation,
     unused_attributes,
+    unused_features,
     unused_import_braces,
-    unused_imports,
-    unused_must_use,
-    unused_mut,
     unused_parens,
     unused_results,
-    unused_unsafe,
-    unused_variables,
 
-    dead_code,
+    bad_style,
+    unused,
+
     deprecated
 )]
 
@@ -21,6 +19,8 @@
     old_io,
     old_path,
     std_misc,
+    fs,
+    path
 )]
 
 extern crate term;

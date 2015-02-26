@@ -9,13 +9,17 @@
     unused_mut,
     unused_parens,
     unused_variables,
+    unused_features,
+
+    bad_style,
+    unused
 )]
 
 #![feature(
     env,
     old_io,
-    old_path,
     std_misc,
+    path,
 )]
 
 extern crate term;
