@@ -3,8 +3,6 @@ extern crate time;
 use prompt_buffer::escape;
 use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
 use prompt_buffer::line::{PromptLine, PromptLineBuilder};
-use std::old_io::fs::PathExtensions;
-use std::num::Float;
 use term::color;
 use std::path::PathBuf;
 use std::fs::{
@@ -61,7 +59,7 @@ impl ToTimePeriod for str {
         let mut p = self.to_string();
         p.push('s');
 
-        (self, p.as_slice()).as_period()
+        (self, p.as_ref()).as_period()
     }
 }
 
@@ -91,7 +89,7 @@ impl PromptBufferPlugin for DueDatePlugin {
                     }
                 };
 
-                match time::strptime(line("").trim().as_slice(), "%a %b %d %H:%M:%S %Y") {
+                match time::strptime(line("").trim().as_ref(), "%a %b %d %H:%M:%S %Y") {
                     Ok(due_date) => {
                         let due = due_date.to_timespec();
                         let now = time::now().to_timespec();
@@ -113,7 +111,7 @@ impl PromptBufferPlugin for DueDatePlugin {
                             "second".as_period(),
                         ];
 
-                        let times = range(0, ups.len()).map(|i| {
+                        let times = (0..ups.len()).map(|i| {
                             ups[i..].iter().fold(1.0, |a, &b| a * b)
                         });
 

@@ -4,53 +4,44 @@
     unused_features,
     unused_import_braces,
     unused_parens,
-    unused_results,
+    unused_must_use,
 
     bad_style,
-    unused,
-
-    deprecated
+    unused
 )]
 
 #![feature(
-    core,
-    env,
-    io,
-    old_io,
-    old_path,
+    path_ext,
     std_misc,
-    fs,
-    path
+    metadata_ext,
+    path_relative_from
 )]
 
 extern crate term;
 extern crate git2;
+extern crate unix_socket;
 extern crate prompt_buffer;
 
 use prompt_buffer::thread::PromptThread;
 use prompt_buffer::buffer::PromptBuffer;
 
 use std::collections::HashMap;
-use std::old_io::{
-    Acceptor,
-    Command,
-    File,
-    fs,
-    Listener,
-    process,
-    stdio,
-    timer,
-};
-use std::old_io::fs::PathExtensions;
-use std::old_io::net::pipe::{
+use std::fs;
+use std::io::{Write, Read};
+
+use unix_socket::{
     UnixListener,
     UnixStream,
 };
 use std::env;
 use std::time::Duration;
-use std::error::Error;
 use std::fs::PathExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::net::Shutdown;
+use std::thread;
+use std::sync::mpsc::{self, Receiver};
+use std::os::unix::fs::MetadataExt;
+use std::process::Command;
 
 mod git;
 mod due_date;
@@ -63,22 +54,16 @@ fn get_prompt() -> PromptBuffer {
     buf
 }
 
-fn exe_changed() -> u64 {
+fn exe_changed() -> i64 {
     match env::current_exe() {
         Ok(exe_path) => {
-            match exe_path.metadata() {
-                Ok(m) => m.modified(),
-                Err(_) => 0u64
+            match fs::metadata(exe_path) {
+                Ok(m) => m.as_raw().mtime(),
+                Err(_) => 0i64
             }
         },
-        Err(_) => 0u64
+        Err(_) => 0i64
     }
-}
-
-fn current_pid(pid_path: &Path) -> Result<i32, Box<Error>> {
-    let mut file = try!(File::open(pid_path));
-    let contents = try!(file.read_to_string());
-    Ok(try!(contents.parse()))
 }
 
 macro_rules! sock_try {
@@ -108,17 +93,17 @@ fn main() {
 }
 
 fn do_daemon(socket_path: &Path) {
-    let stdout_path = Path::new("/var/log/megaprompt/current.out");
-    let stderr_path = Path::new("/var/log/megaprompt/current.err");
+    // let stdout_path = Path::new("/var/log/megaprompt/current.out");
+    // let stderr_path = Path::new("/var/log/megaprompt/current.err");
 
-    let _ = stdio::set_stdout(Box::new(File::create(&stdout_path)));
-    let _ = stdio::set_stderr(Box::new(File::create(&stderr_path)));
+    // let _ = stdio::set_stdout(Box::new(File::create(&stdout_path)));
+    // let _ = stdio::set_stderr(Box::new(File::create(&stderr_path)));
 
     let last_modified = exe_changed();
     let mut threads: HashMap<PathBuf, PromptThread> = HashMap::new();
 
     if socket_path.exists() {
-        fs::unlink(socket_path).unwrap();
+        fs::remove_file(socket_path).ok().expect("Unable to remove file");
     }
 
     let stream = match UnixListener::bind(socket_path) {
@@ -126,10 +111,14 @@ fn do_daemon(socket_path: &Path) {
         Ok(stream) => stream
     };
 
-    for mut connection in stream.listen().incoming() {
-        let c = &mut connection;
+    println!("BIND");
 
-        let output = PathBuf::new(&sock_try!(c.read_to_string()));
+    for connection in stream.incoming() {
+        let c = &mut connection.unwrap();
+
+        let mut output = String::new();
+        let _  = sock_try!(c.read_to_string(&mut output));
+        let output = PathBuf::from(&output);
         println!("Preparing to respond to for {}", output.display());
 
         let keys: Vec<PathBuf> = threads.keys().map(|x| { x.clone() }).collect();
@@ -162,33 +151,71 @@ fn do_daemon(socket_path: &Path) {
     }
 }
 
+fn oneshot_timer(dur: Duration) -> Receiver<()> {
+    let (tx, rx) = mpsc::channel();
+
+    let _ = thread::spawn(move || {
+        thread::sleep_ms(dur.num_milliseconds() as u32);
+
+        tx.send(()).unwrap();
+    });
+
+    rx
+}
+
+fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String,String> {
+    let (tx, rx) = mpsc::channel();
+
+    let _ = thread::spawn(move || {
+        let mut ret = String::new();
+        stream.read_to_string(&mut ret).unwrap();
+        tx.send(ret).unwrap();
+    });
+
+    let timeout = oneshot_timer(dur);
+
+    select! {
+        resp = rx.recv() => Ok(resp.unwrap()),
+        _ = timeout.recv() => Err("Timeout".to_string())
+    }
+}
+
 fn do_main(socket_path: &Path) {
-    let pid_path = Path::new("/var/log/megaprompt/current.pid");
+    // let pid_path = Path::new("/var/log/megaprompt/current.pid");
 
-    let current_pid = current_pid(&pid_path).ok().unwrap_or(-1);
+    // let current_pid = current_pid(&pid_path).ok().unwrap_or(-1);
 
-    match process::Process::kill(current_pid, 0) {
-        Err(_) => {
-            // We need to start up the daemon again
-            let child = Command::new(env::args().next().unwrap().as_slice())
-                .arg("daemon")
-                .detached().spawn().unwrap();
+    /*
+    if !pid_exists(current_pid) {
+        // We need to start up the daemon again
+        let child = Command::new("nohup")
+            .arg(env::args().next().unwrap().as_ref())
+            .arg("daemon")
+            .spawn().unwrap();
 
+        let mut f = match File::create(&pid_path) {
+            Ok(f) => f,
+            Err(_) => panic!("Unable to open pid file")
+        };
 
-            let mut f = match File::create(&pid_path) {
-                Ok(f) => f,
-                Err(_) => panic!("Unable to open pid file")
-            };
+        write!(&mut f, "{}", child.id()).unwrap();
 
-            write!(&mut f, "{}", child.id()).unwrap();
+        println!("Spawned child {}", child.id());
 
-            println!("Spawned child {}", child.id());
+        child.forget();
 
-            child.forget();
+        thread::sleep_ms(10);
+    }
+    */
 
-            timer::sleep(Duration::milliseconds(10));
-        }
-        _ => {}
+    let is_running = match Command::new("megapromptd").arg("status").output() {
+        Ok(output) => String::from_utf8_lossy(output.stdout.as_ref()).contains("is running"),
+        Err(_) => false
+    };
+
+    if is_running && false {
+        let _ = Command::new("megapromptd").arg("start").output();
+        thread::sleep_ms(10);
     }
 
     let mut stream = match UnixStream::connect(socket_path) {
@@ -201,9 +228,9 @@ fn do_main(socket_path: &Path) {
     };
 
     write!(&mut stream, "{}", env::current_dir().unwrap().display()).unwrap();
-    stream.close_write().unwrap();
-    stream.set_read_timeout(Some(200));
-    match stream.read_to_string() {
+    stream.shutdown(Shutdown::Write).unwrap();
+
+    match read_with_timeout(stream, Duration::milliseconds(200)) {
         Ok(s) => println!("{}", s),
         Err(_) => {
             println!("Response too slow");

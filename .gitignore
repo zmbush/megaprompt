@@ -39,4 +39,8 @@ nosetests.xml
 htmlcov
 target
 
+*.swl
+*.swm
+*.swn
+*.swo
 *.swp

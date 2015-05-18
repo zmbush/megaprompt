@@ -9,7 +9,7 @@ use self::lines::*;
 use line::{PromptLineType, PromptLine, PromptLineBuilder, PromptBox};
 
 /// Defines the speed at which to run the to_string method
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub enum PluginSpeed {
     /// Don't run plugin
     Ignored,
@@ -111,9 +111,8 @@ impl PromptBuffer {
         self.start(&mut lines);
 
         if !speed.is_ignored() {
-            let mut pl = self.plugins.as_mut_slice();
-            for i in 0 .. pl.len() {
-                pl[i].run(&speed, &self.path, &mut lines);
+            for p in self.plugins.iter_mut() {
+                p.run(&speed, &self.path, &mut lines);
             }
         }
 

@@ -15,12 +15,7 @@
     unused
 )]
 
-#![feature(
-    env,
-    old_io,
-    std_misc,
-    path,
-)]
+#![feature(std_misc)]
 
 extern crate term;
 

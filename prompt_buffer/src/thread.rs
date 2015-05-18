@@ -4,7 +4,7 @@
 //!
 //! Thred will run for 10 minutes after the last request, to avoid
 //! leaking too many threads.
-use std::old_io::{timer, Timer};
+// use std::old_io::{timer, Timer};
 use std::time::Duration;
 use std::thread;
 use std::sync::mpsc::{self, Sender, Receiver};
@@ -22,6 +22,18 @@ pub struct PromptThread {
     alive: bool,
 }
 
+fn oneshot_timer(dur: Duration) -> Receiver<()> {
+    let (tx, rx) = mpsc::channel();
+
+    thread::spawn(move || {
+        thread::sleep_ms(dur.num_milliseconds() as u32);
+
+        tx.send(()).unwrap();
+    });
+
+    rx
+}
+
 impl PromptThread {
     /// Creates a new prompt thread for a given path
     pub fn new(path: PathBuf, make_prompt: &Fn() -> PromptBuffer) -> PromptThread {
@@ -34,10 +46,9 @@ impl PromptThread {
         let cached = prompt.to_string_ext(PluginSpeed::Fast);
         thread::Builder::new().name(format!("{}", path.display())).spawn(move || {
             prompt.set_path(p);
-            let mut timer = Timer::new().unwrap();
 
             loop {
-                let timeout = timer.oneshot(Duration::minutes(10));
+                let timeout = oneshot_timer(Duration::minutes(10));
 
                 select! {
                     _ = rx_notify.recv() => {
@@ -88,8 +99,7 @@ impl PromptThread {
 
         self.send.send(()).unwrap();
 
-        let mut timer = Timer::new().unwrap();
-        let timeout = timer.oneshot(Duration::milliseconds(100));
+        let timeout = oneshot_timer(Duration::milliseconds(100));
 
         loop {
             let resp = self.recv.try_recv();
@@ -114,7 +124,7 @@ impl PromptThread {
                 return self.cached.clone();
             }
 
-            timer::sleep(Duration::milliseconds(10));
+            thread::sleep_ms(10);
         }
     }
 }

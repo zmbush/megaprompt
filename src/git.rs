@@ -10,6 +10,28 @@ use term::color;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
+trait RelativePath {
+    fn make_relative(self, base: &Path) -> Option<Self>;
+}
+
+impl RelativePath for PathBuf {
+    fn make_relative(self, base: &Path) -> Option<PathBuf> {
+        if self.starts_with(base) {
+            Some(self.relative_from(base).unwrap().to_path_buf())
+        } else {
+            let mut b = base.to_path_buf();
+            if b.pop() {
+                match self.make_relative(&b) {
+                    Some(s) => Some(Path::new("..").join(s)),
+                    None => None
+                }
+            } else {
+                None
+            }
+        }
+    }
+}
+
 enum StatusTypes {
     New,
     Modified,
@@ -153,11 +175,10 @@ impl GitPlugin {
             .renames_head_to_index(true)
         ));
 
-        let make_path_relative = |&: current: &Path| {
+        let make_path_relative = |current: &Path| {
             let mut fullpath = repo.workdir().unwrap().to_path_buf();
             fullpath.push(current);
-
-            fullpath.relative_from(path).unwrap().to_path_buf()
+            fullpath.make_relative(path).unwrap_or(PathBuf::from("/"))
         };
 
         match st {
@@ -231,8 +252,8 @@ impl GitPlugin {
 
         let mut revwalk = try!(repo.revwalk());
 
-        let from = try!(repo.revparse_single(branches.upstream.unwrap_or("HEAD".to_string()).as_slice())).id();
-        let to = try!(repo.revparse_single(branches.name.unwrap_or("HEAD".to_string()).as_slice())).id();
+        let from = try!(repo.revparse_single(branches.upstream.unwrap_or("HEAD".to_string()).as_ref())).id();
+        let to = try!(repo.revparse_single(branches.name.unwrap_or("HEAD".to_string()).as_ref())).id();
 
         try!(revwalk.push(to));
         try!(revwalk.hide(from));
