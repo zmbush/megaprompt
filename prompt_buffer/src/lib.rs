@@ -15,7 +15,7 @@
     unused
 )]
 
-#![feature(std_misc)]
+#![feature(std_misc, duration)]
 
 extern crate term;
 

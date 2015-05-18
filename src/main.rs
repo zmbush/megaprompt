@@ -14,7 +14,8 @@
     path_ext,
     std_misc,
     metadata_ext,
-    path_relative_from
+    path_relative_from,
+    duration
 )]
 
 extern crate term;
@@ -154,8 +155,9 @@ fn do_daemon(socket_path: &Path) {
 fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
-    let _ = thread::spawn(move || {
-        thread::sleep_ms(dur.num_milliseconds() as u32);
+    thread::spawn(move || {
+        let time = dur.secs() * 1000 + dur.extra_nanos() as u64 / 1000;
+        thread::sleep_ms(time as u32);
 
         tx.send(()).unwrap();
     });
@@ -230,7 +232,7 @@ fn do_main(socket_path: &Path) {
     write!(&mut stream, "{}", env::current_dir().unwrap().display()).unwrap();
     stream.shutdown(Shutdown::Write).unwrap();
 
-    match read_with_timeout(stream, Duration::milliseconds(200)) {
+    match read_with_timeout(stream, Duration::from_millis(200)) {
         Ok(s) => println!("{}", s),
         Err(_) => {
             println!("Response too slow");

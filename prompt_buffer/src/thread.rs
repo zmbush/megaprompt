@@ -26,7 +26,8 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        thread::sleep_ms(dur.num_milliseconds() as u32);
+        let time = dur.secs() * 1000 + dur.extra_nanos() as u64 / 1000;
+        thread::sleep_ms(time as u32);
 
         tx.send(()).unwrap();
     });
@@ -48,7 +49,7 @@ impl PromptThread {
             prompt.set_path(p);
 
             loop {
-                let timeout = oneshot_timer(Duration::minutes(10));
+                let timeout = oneshot_timer(Duration::from_secs(10*60));
 
                 select! {
                     _ = rx_notify.recv() => {
@@ -99,7 +100,7 @@ impl PromptThread {
 
         self.send.send(()).unwrap();
 
-        let timeout = oneshot_timer(Duration::milliseconds(100));
+        let timeout = oneshot_timer(Duration::from_millis(100));
 
         loop {
             let resp = self.recv.try_recv();
