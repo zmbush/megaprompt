@@ -42,7 +42,7 @@ mod lines {
 /// Used to contain a list of PromptLines
 /// Knows how to format a serise of PromptLines in a pretty way
 pub struct PromptBuffer {
-    plugins: Vec<Box<PromptBufferPlugin+Send>>,
+    plugins: Vec<Box<PromptBufferPlugin>>,
     path: PathBuf
 }
 
@@ -196,7 +196,7 @@ impl PromptBuffer {
 }
 
 /// Implement this trait to allow extension of the PromptBuffer's result
-pub trait PromptBufferPlugin {
+pub trait PromptBufferPlugin: Send {
     /// Should append as many PromptLines as it wants to the lines Vec
     ///
     /// The path can be used to provide context if necessary
