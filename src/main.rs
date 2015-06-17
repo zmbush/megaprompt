@@ -5,6 +5,7 @@
     unused_import_braces,
     unused_parens,
     unused_must_use,
+    stable_features,
 
     bad_style,
     unused
@@ -13,7 +14,6 @@
 #![feature(
     path_ext,
     std_misc,
-    metadata_ext,
     path_relative_from,
     duration
 )]
@@ -59,7 +59,7 @@ fn exe_changed() -> i64 {
     match env::current_exe() {
         Ok(exe_path) => {
             match fs::metadata(exe_path) {
-                Ok(m) => m.as_raw().mtime(),
+                Ok(m) => m.mtime(),
                 Err(_) => 0i64
             }
         },
