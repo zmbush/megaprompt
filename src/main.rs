@@ -183,39 +183,12 @@ fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String,Str
 }
 
 fn do_main(socket_path: &Path) {
-    // let pid_path = Path::new("/var/log/megaprompt/current.pid");
-
-    // let current_pid = current_pid(&pid_path).ok().unwrap_or(-1);
-
-    /*
-    if !pid_exists(current_pid) {
-        // We need to start up the daemon again
-        let child = Command::new("nohup")
-            .arg(env::args().next().unwrap().as_ref())
-            .arg("daemon")
-            .spawn().unwrap();
-
-        let mut f = match File::create(&pid_path) {
-            Ok(f) => f,
-            Err(_) => panic!("Unable to open pid file")
-        };
-
-        write!(&mut f, "{}", child.id()).unwrap();
-
-        println!("Spawned child {}", child.id());
-
-        child.forget();
-
-        thread::sleep_ms(10);
-    }
-    */
-
     let is_running = match Command::new("megapromptd").arg("status").output() {
         Ok(output) => String::from_utf8_lossy(output.stdout.as_ref()).contains("is running"),
         Err(_) => false
     };
 
-    if is_running && false {
+    if !is_running {
         let _ = Command::new("megapromptd").arg("start").output();
         thread::sleep_ms(10);
     }
