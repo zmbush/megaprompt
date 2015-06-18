@@ -8,4 +8,4 @@ authors = ["Zachary Bush <zachary.bush@meraki.net>"]
 term = "*"
 
 [dependencies.clippy]
-git = "https://github.com/Manishearth/rust-clippy"
+git = "https://github.com/zmbush/rust-clippy"

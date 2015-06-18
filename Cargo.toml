@@ -14,7 +14,7 @@ unix_socket = "*"
 path = "prompt_buffer"
 
 [dependencies.clippy]
-git = "https://github.com/Manishearth/rust-clippy"
+git = "https://github.com/zmbush/rust-clippy"
 
 [[bin]]
 name = "megaprompt"
