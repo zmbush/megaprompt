@@ -4,13 +4,17 @@ version = "0.1.0"
 authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
 
 [dependencies]
-time = "*"
+git2 = "*"
+log = "*"
 term = "*"
-git2 = "0.2"
+time = "*"
 unix_socket = "*"
 
 [dependencies.prompt_buffer]
 path = "prompt_buffer"
+
+[dependencies.clippy]
+git = "https://github.com/Manishearth/rust-clippy"
 
 [[bin]]
 name = "megaprompt"

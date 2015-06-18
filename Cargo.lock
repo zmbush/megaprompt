@@ -2,7 +2,9 @@
 name = "Megaprompt"
 version = "0.1.0"
 dependencies = [
+ "clippy 0.0.5 (git+https://github.com/Manishearth/rust-clippy)",
  "git2 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prompt_buffer 0.0.1",
  "term 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.26 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -13,6 +15,11 @@ dependencies = [
 name = "bitflags"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "clippy"
+version = "0.0.5"
+source = "git+https://github.com/Manishearth/rust-clippy#2fb55deb8e0b022b6f95368d3a435d3713862989"
 
 [[package]]
 name = "debug-builders"
@@ -90,6 +97,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "log"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "libc 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "matches"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -122,6 +137,7 @@ dependencies = [
 name = "prompt_buffer"
 version = "0.0.1"
 dependencies = [
+ "clippy 0.0.5 (git+https://github.com/Manishearth/rust-clippy)",
  "term 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

@@ -56,7 +56,7 @@ trait ToTimePeriod {
 
 impl ToTimePeriod for str {
     fn as_period(&self) -> TimePeriod {
-        let mut p = self.to_string();
+        let mut p = self.to_owned();
         p.push('s');
 
         (self, p.as_ref()).as_period()
@@ -67,13 +67,14 @@ impl<'s> ToTimePeriod for (&'s str, &'s str) {
     fn as_period(&self) -> TimePeriod {
         let (s, p) = *self;
         TimePeriod {
-            singular: s.to_string(),
-            plural: p.to_string()
+            singular: s.to_owned(),
+            plural: p.to_owned()
         }
     }
 }
 
 impl PromptBufferPlugin for DueDatePlugin {
+    #[allow(ptr_arg)]
     fn run(&mut self, _: &PluginSpeed, path: &PathBuf, lines: &mut Vec<PromptLine>) {
         for mut path in PathTraversal::new(path) {
             path.push(".due");
@@ -85,7 +86,7 @@ impl PromptBufferPlugin for DueDatePlugin {
                     let mut line = String::new();
                     match reader.read_line(&mut line) {
                         Ok(_) => line,
-                        Err(_) => s.to_string()
+                        Err(_) => s.to_owned()
                     }
                 };
 

@@ -8,15 +8,20 @@
     stable_features,
 
     bad_style,
-    unused
+    unused,
+
+    clippy
 )]
 
 #![feature(
     path_ext,
     std_misc,
     path_relative_from,
-    duration
+    duration,
+    plugin
 )]
+
+#![plugin(clippy)]
 
 extern crate term;
 extern crate git2;
@@ -178,7 +183,7 @@ fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String,Str
 
     select! {
         resp = rx.recv() => Ok(resp.unwrap()),
-        _ = timeout.recv() => Err("Timeout".to_string())
+        _ = timeout.recv() => Err("Timeout".to_owned())
     }
 }
 

@@ -80,6 +80,7 @@ impl PromptBuffer {
         retval
     }
 
+    #[allow(ptr_arg)]
     fn start(&self, lines: &mut Vec<PromptLine>) {
         lines.push(PromptLineBuilder::new()
             .block("\\w")
@@ -163,11 +164,8 @@ impl PromptBuffer {
                 };
             }
 
-            match line.line_type {
-                PromptLineType::Boxed => {
-                    line_text = format!("{}{}", line_text, PromptBuffer::trail_off());
-                },
-                _ => {}
+            if let PromptLineType::Boxed = line.line_type {
+                line_text = format!("{}{}", line_text, PromptBuffer::trail_off());
             }
 
             retval = format!("{}{}\n", retval, line_text);
@@ -176,7 +174,7 @@ impl PromptBuffer {
         format!("{}{}{}{} ",
             retval,
             PromptBuffer::get_line(TOP|RIGHT), PromptBuffer::get_line(LEFT|RIGHT),
-            PromptBox::create("\\$".to_string(), color::RED, false))
+            PromptBox::create("\\$".to_owned(), color::RED, false))
     }
 
     /// Returns the prompt with plugins run
@@ -200,5 +198,6 @@ pub trait PromptBufferPlugin: Send {
     /// Should append as many PromptLines as it wants to the lines Vec
     ///
     /// The path can be used to provide context if necessary
+    #[allow(ptr_arg)]
     fn run(&mut self, speed: &PluginSpeed, path: &PathBuf, lines: &mut Vec<PromptLine>);
 }

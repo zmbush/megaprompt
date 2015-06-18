@@ -110,7 +110,7 @@ fn git_branch(repo: &Repository) -> Result<BranchInfo, Error> {
         return Ok(BranchInfo {
             name: match name {
                 Ok(n) => match n {
-                    Some(value) => Some(value.to_string()),
+                    Some(value) => Some(value.to_owned()),
                     _ => None
                 },
                 _ => None
@@ -119,7 +119,7 @@ fn git_branch(repo: &Repository) -> Result<BranchInfo, Error> {
                 Ok(upstream) => {
                     match upstream.name() {
                         Ok(n) => match n {
-                            Some(value) => Some(value.to_string()),
+                            Some(value) => Some(value.to_owned()),
                             _ => None
                         },
                         _ => None
@@ -138,7 +138,7 @@ fn git_branch(repo: &Repository) -> Result<BranchInfo, Error> {
                 let short_id = s.unwrap();
                 Ok(BranchInfo {
                     name: Some(format!("{}", short_id)),
-                    upstream: Some("?".to_string())
+                    upstream: Some("?".to_owned())
                 })
             },
             Err(e) => Err(e)
@@ -167,6 +167,7 @@ impl GitPlugin {
         }
     }
 
+    #[allow(ptr_arg)]
     fn status(&self, buffer: &mut Vec<PromptLine>, path: &Path) -> Result<bool, Error> {
         let repo = try!(self.get_repo());
 
@@ -181,56 +182,55 @@ impl GitPlugin {
             fullpath.make_relative(path).unwrap_or(PathBuf::from("/"))
         };
 
-        match st {
-            Ok(statuses) => {
-                if statuses.len() <= 0 { return Ok(false) }
+        if let Ok(statuses) = st {
+            if statuses.len() <= 0 { return Ok(false) }
 
-                buffer.push(PromptLineBuilder::new()
-                    .colored_block("Git Status", color::CYAN)
-                    .build());
+            buffer.push(PromptLineBuilder::new()
+                .colored_block("Git Status", color::CYAN)
+                .build());
 
-                for stat in statuses.iter() {
-                    let mut line = PromptLineBuilder::new_free();
+            for stat in statuses.iter() {
+                let mut line = PromptLineBuilder::new_free();
 
-                    let status = GitStatus::new(stat.status());
+                let status = GitStatus::new(stat.status());
 
-                    let diff = match stat.head_to_index() {
+                let diff = match stat.head_to_index() {
+                    Some(delta) => Some(delta),
+                    None => match stat.index_to_workdir() {
                         Some(delta) => Some(delta),
-                        None => match stat.index_to_workdir() {
-                            Some(delta) => Some(delta),
-                            None => None
+                        None => None
+                    }
+                };
+
+                let val = format!("{} {}", status, match diff {
+                    Some(delta) => {
+                        let old = make_path_relative(delta.old_file().path().unwrap());
+                        let new = make_path_relative(delta.new_file().path().unwrap());
+
+                        if old != new {
+                            format!("{} -> {}", old.display(), new.display())
+                        } else {
+                            format!("{}", old.display())
                         }
-                    };
+                    },
+                    None => format!("{}", Path::new(stat.path().unwrap()).display())
+                });
 
-                    let val = format!("{} {}", status, match diff {
-                        Some(delta) => {
-                            let old = make_path_relative(delta.old_file().path().unwrap());
-                            let new = make_path_relative(delta.new_file().path().unwrap());
+                line = match status.index {
+                    StatusTypes::Clean => line.colored_block(val, file_state_color(status.workdir)),
+                    _ => match status.workdir {
+                        StatusTypes::Clean | StatusTypes::Untracked =>
+                            line.bold_colored_block(val, file_state_color(status.index)),
+                        _ => line.bold_colored_block(val, color::RED)
+                    }
+                };
 
-                            if old != new {
-                                format!("{} -> {}", old.display(), new.display())
-                            } else {
-                                format!("{}", old.display())
-                            }
-                        },
-                        None => format!("{}", Path::new(stat.path().unwrap()).display())
-                    });
+                buffer.push(line.indent().build());
+            }
 
-                    line = match status.index {
-                        StatusTypes::Clean => line.colored_block(val, file_state_color(status.workdir)),
-                        _ => match status.workdir {
-                            StatusTypes::Clean | StatusTypes::Untracked =>
-                                line.bold_colored_block(val, file_state_color(status.index)),
-                            _ => line.bold_colored_block(val, color::RED)
-                        }
-                    };
-
-                    buffer.push(line.indent().build());
-                }
-
-                return Ok(true)
-            },
-            _ => { return Ok(false) }
+            return Ok(true);
+        } else {
+            return Ok(false);
         }
 
         fn file_state_color(state: StatusTypes) -> u16 {
@@ -245,6 +245,7 @@ impl GitPlugin {
         }
     }
 
+    #[allow(ptr_arg)]
     fn outgoing(&self, buffer: &mut Vec<PromptLine>, has_status: bool) -> Result<bool, Error> {
         let repo = try!(self.get_repo());
 
@@ -252,8 +253,8 @@ impl GitPlugin {
 
         let mut revwalk = try!(repo.revwalk());
 
-        let from = try!(repo.revparse_single(branches.upstream.unwrap_or("HEAD".to_string()).as_ref())).id();
-        let to = try!(repo.revparse_single(branches.name.unwrap_or("HEAD".to_string()).as_ref())).id();
+        let from = try!(repo.revparse_single(branches.upstream.unwrap_or("HEAD".to_owned()).as_ref())).id();
+        let to = try!(repo.revparse_single(branches.name.unwrap_or("HEAD".to_owned()).as_ref())).id();
 
         try!(revwalk.push(to));
         try!(revwalk.hide(from));
@@ -292,6 +293,7 @@ impl GitPlugin {
         return Ok(log_shown);
     }
 
+    #[allow(ptr_arg)]
     fn end(&self, buffer: &mut Vec<PromptLine>, indented: bool) -> Result<bool, Error> {
         let repo = try!(self.get_repo());
 
@@ -300,14 +302,14 @@ impl GitPlugin {
         buffer.push(PromptLineBuilder::new()
             .colored_block(
                 &match (branches.name, branches.upstream) {
-                    (None, None) => "New Repository".to_string(),
+                    (None, None) => "New Repository".to_owned(),
                     (Some(name), None) => name,
                     (Some(name), Some(remote)) => format!("{}{} -> {}{}",
                         name,
                         escape::reset(),
                         escape::col(color::MAGENTA),
                         remote),
-                    _ => "Unknown branch state".to_string()
+                    _ => "Unknown branch state".to_owned()
                 }, color::CYAN)
             .indent_by(if indented { 1 } else { 0 })
             .build());
@@ -317,6 +319,7 @@ impl GitPlugin {
 }
 
 impl PromptBufferPlugin for GitPlugin {
+    #[allow(ptr_arg)]
     fn run(&mut self, speed: &PluginSpeed, path: &PathBuf, lines: &mut Vec<PromptLine>) {
         if self.path != *path || self.repo.is_none() {
             self.path = path.clone();

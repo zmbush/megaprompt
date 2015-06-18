@@ -12,10 +12,13 @@
     unused_features,
 
     bad_style,
-    unused
+    unused,
+
+    clippy
 )]
 
-#![feature(std_misc, duration)]
+#![feature(std_misc, duration, plugin)]
+#![plugin(clippy)]
 
 extern crate term;
 
