@@ -2,7 +2,7 @@ extern crate time;
 
 use prompt_buffer::escape;
 use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
-use prompt_buffer::line::{PromptLine, PromptLineBuilder};
+use prompt_buffer::line::{PromptLines, PromptLineBuilder};
 use term::color;
 use std::path::PathBuf;
 use std::fs::{
@@ -74,8 +74,7 @@ impl<'s> ToTimePeriod for (&'s str, &'s str) {
 }
 
 impl PromptBufferPlugin for DueDatePlugin {
-    #[allow(ptr_arg)]
-    fn run(&mut self, _: &PluginSpeed, path: &PathBuf, lines: &mut Vec<PromptLine>) {
+    fn run(&mut self, _: &PluginSpeed, path: &PathBuf, lines: &mut PromptLines) {
         for mut path in PathTraversal::new(path) {
             path.push(".due");
 

@@ -6,7 +6,12 @@ use std::path::PathBuf;
 use term::color;
 
 use self::lines::*;
-use line::{PromptLineType, PromptLine, PromptLineBuilder, PromptBox};
+use line::{
+    PromptBox,
+    PromptLineBuilder,
+    PromptLines,
+    PromptLineType,
+};
 
 /// Defines the speed at which to run the to_string method
 #[derive(Clone, Copy)]
@@ -80,8 +85,7 @@ impl PromptBuffer {
         retval
     }
 
-    #[allow(ptr_arg)]
-    fn start(&self, lines: &mut Vec<PromptLine>) {
+    fn start(&self, lines: &mut PromptLines) {
         lines.push(PromptLineBuilder::new()
             .block("\\w")
             .block("\\H")
@@ -198,6 +202,5 @@ pub trait PromptBufferPlugin: Send {
     /// Should append as many PromptLines as it wants to the lines Vec
     ///
     /// The path can be used to provide context if necessary
-    #[allow(ptr_arg)]
-    fn run(&mut self, speed: &PluginSpeed, path: &PathBuf, lines: &mut Vec<PromptLine>);
+    fn run(&mut self, speed: &PluginSpeed, path: &PathBuf, lines: &mut PromptLines);
 }

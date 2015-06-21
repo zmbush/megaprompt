@@ -2,7 +2,7 @@
 name = "Megaprompt"
 version = "0.1.0"
 dependencies = [
- "clippy 0.0.5 (git+https://github.com/zmbush/rust-clippy)",
+ "clippy 0.0.5 (git+https://github.com/Manishearth/rust-clippy)",
  "git2 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prompt_buffer 0.0.1",
@@ -19,7 +19,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "clippy"
 version = "0.0.5"
-source = "git+https://github.com/zmbush/rust-clippy#0ffbdf2f8adc4d355dee96c4f2b462bc0e7ba255"
+source = "git+https://github.com/Manishearth/rust-clippy#a92b063727409108c148a3281ea0e4dc971277ce"
 
 [[package]]
 name = "debug-builders"
@@ -137,7 +137,7 @@ dependencies = [
 name = "prompt_buffer"
 version = "0.0.1"
 dependencies = [
- "clippy 0.0.5 (git+https://github.com/zmbush/rust-clippy)",
+ "clippy 0.0.5 (git+https://github.com/Manishearth/rust-clippy)",
  "term 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

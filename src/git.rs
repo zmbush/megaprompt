@@ -3,7 +3,7 @@ extern crate term;
 
 use prompt_buffer::escape;
 use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
-use prompt_buffer::line::{PromptLine, PromptLineBuilder};
+use prompt_buffer::line::{PromptLines, PromptLineBuilder};
 use git2::{Repository, Error, StatusOptions};
 use std::{fmt, env};
 use term::color;
@@ -167,8 +167,7 @@ impl GitPlugin {
         }
     }
 
-    #[allow(ptr_arg)]
-    fn status(&self, buffer: &mut Vec<PromptLine>, path: &Path) -> Result<bool, Error> {
+    fn status(&self, buffer: &mut PromptLines, path: &Path) -> Result<bool, Error> {
         let repo = try!(self.get_repo());
 
         let st = repo.statuses(Some(StatusOptions::new()
@@ -245,8 +244,7 @@ impl GitPlugin {
         }
     }
 
-    #[allow(ptr_arg)]
-    fn outgoing(&self, buffer: &mut Vec<PromptLine>, has_status: bool) -> Result<bool, Error> {
+    fn outgoing(&self, buffer: &mut PromptLines, has_status: bool) -> Result<bool, Error> {
         let repo = try!(self.get_repo());
 
         let branches = try!(git_branch(repo));
@@ -293,8 +291,7 @@ impl GitPlugin {
         return Ok(log_shown);
     }
 
-    #[allow(ptr_arg)]
-    fn end(&self, buffer: &mut Vec<PromptLine>, indented: bool) -> Result<bool, Error> {
+    fn end(&self, buffer: &mut PromptLines, indented: bool) -> Result<bool, Error> {
         let repo = try!(self.get_repo());
 
         let branches = try!(git_branch(repo));
@@ -319,8 +316,7 @@ impl GitPlugin {
 }
 
 impl PromptBufferPlugin for GitPlugin {
-    #[allow(ptr_arg)]
-    fn run(&mut self, speed: &PluginSpeed, path: &PathBuf, lines: &mut Vec<PromptLine>) {
+    fn run(&mut self, speed: &PluginSpeed, path: &PathBuf, lines: &mut PromptLines) {
         if self.path != *path || self.repo.is_none() {
             self.path = path.clone();
             self.repo = get_git(&self.path);

@@ -14,11 +14,11 @@
 )]
 
 #![feature(
-    path_ext,
-    std_misc,
-    path_relative_from,
     duration,
-    plugin
+    mpsc_select,
+    path_ext,
+    path_relative_from,
+    plugin,
 )]
 
 #![plugin(clippy)]

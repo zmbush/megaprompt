@@ -17,7 +17,11 @@
     clippy
 )]
 
-#![feature(std_misc, duration, plugin)]
+#![feature(
+    duration,
+    mpsc_select,
+    plugin,
+)]
 #![plugin(clippy)]
 
 extern crate term;

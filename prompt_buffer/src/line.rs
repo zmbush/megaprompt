@@ -72,6 +72,9 @@ impl PromptLine {
     }
 }
 
+/// A list of PromptLines
+pub type PromptLines = Vec<PromptLine>;
+
 /// PromptLineBuilder
 ///
 /// Used to easily construct PromptLines
