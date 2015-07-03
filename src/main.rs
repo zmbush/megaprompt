@@ -161,7 +161,7 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        let time = dur.secs() * 1000 + dur.extra_nanos() as u64 / 1000;
+        let time = dur.secs() * 1000 + dur.extra_nanos() as u64 / 1000000;
         thread::sleep_ms(time as u32);
 
         tx.send(()).unwrap();

@@ -26,7 +26,7 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        let time = dur.secs() * 1000 + dur.extra_nanos() as u64 / 1000;
+        let time = dur.secs() * 1000 + dur.extra_nanos() as u64 / 1000000;
         thread::sleep_ms(time as u32);
 
         tx.send(()).unwrap();
@@ -64,7 +64,7 @@ impl PromptThread {
                 }
 
                 // Drain notify channel
-                while rx_notify.try_recv().is_ok() {}
+                while let Ok(_) = rx_notify.try_recv() {}
             }
         }).unwrap();
 
@@ -103,17 +103,9 @@ impl PromptThread {
         let timeout = oneshot_timer(Duration::from_millis(100));
 
         loop {
-            let resp = self.recv.try_recv();
-
-            if resp.is_ok() {
-                // We got a good response
-                let mut text = resp.unwrap();
-
-                loop {
-                    match self.recv.try_recv() {
-                        Ok(t) => text = t,
-                        Err(_) => break
-                    }
+            if let Ok(mut text) = self.recv.try_recv() {
+                while let Ok(t) = self.recv.try_recv() {
+                    text = t;
                 }
 
                 self.cached = text;
@@ -121,11 +113,11 @@ impl PromptThread {
             }
 
             // We ran out of time!
-            if timeout.try_recv().is_ok() {
+            if let Ok(_) = timeout.try_recv() {
                 return self.cached.clone();
             }
 
-            thread::sleep_ms(10);
+            thread::sleep_ms(1);
         }
     }
 }

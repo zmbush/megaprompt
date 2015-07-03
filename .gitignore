@@ -44,3 +44,4 @@ target
 *.swn
 *.swo
 *.swp
+*.racertmp
