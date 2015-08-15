@@ -4,13 +4,13 @@
 //!
 //! Thred will run for 10 minutes after the last request, to avoid
 //! leaking too many threads.
-// use std::old_io::{timer, Timer};
 use std::time::Duration;
 use std::thread;
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::path::PathBuf;
 
 use buffer::{PromptBuffer, PluginSpeed};
+use error::PromptBufferResult;
 
 /// Stores information about prompt threads
 pub struct PromptThread {
@@ -26,10 +26,9 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        let time = dur.secs() * 1000 + dur.extra_nanos() as u64 / 1000000;
-        thread::sleep_ms(time as u32);
+        thread::sleep_ms(dur.as_secs() as u32);
 
-        tx.send(()).unwrap();
+        let _ = tx.send(());
     });
 
     rx
@@ -37,7 +36,7 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
 
 impl PromptThread {
     /// Creates a new prompt thread for a given path
-    pub fn new(path: PathBuf, make_prompt: &Fn() -> PromptBuffer) -> PromptThread {
+    pub fn new(path: PathBuf, make_prompt: &Fn() -> PromptBuffer) -> PromptBufferResult<PromptThread> {
         let (tx_notify, rx_notify) = mpsc::channel();
         let (tx_prompt, rx_prompt) = mpsc::channel();
         let (tx_death, rx_death) = mpsc::channel();
@@ -45,7 +44,7 @@ impl PromptThread {
         let p = path.clone();
         let mut prompt = make_prompt();
         let cached = prompt.to_string_ext(PluginSpeed::Fast);
-        thread::Builder::new().name(format!("{}", path.display())).spawn(move || {
+        try!(thread::Builder::new().name(format!("{}", path.display())).spawn(move || {
             prompt.set_path(p);
 
             loop {
@@ -53,12 +52,12 @@ impl PromptThread {
 
                 select! {
                     _ = rx_notify.recv() => {
-                        tx_prompt.send(prompt.to_string()).unwrap();
+                        if let Err(_) = tx_prompt.send(prompt.to_string()) {
+                            return;
+                        }
                     },
                     _ = timeout.recv() => {
-                        // Assume someone is listening for my death
-                        // Otherwise it doesn't matter
-                        tx_death.send(()).unwrap();
+                        let _ = tx_death.send(());
                         break;
                     }
                 }
@@ -66,16 +65,16 @@ impl PromptThread {
                 // Drain notify channel
                 while let Ok(_) = rx_notify.try_recv() {}
             }
-        }).unwrap();
+        }));
 
-        PromptThread {
+        Ok(PromptThread {
             send: tx_notify,
             recv: rx_prompt,
             death: rx_death,
             path: path,
             cached: cached,
             alive: true,
-        }
+        })
     }
 
     /// Checks whether a prompt thread has announced it's death.
@@ -87,18 +86,19 @@ impl PromptThread {
         self.alive
     }
 
-    fn revive(&mut self, make_prompt: &Fn() -> PromptBuffer) {
-        *self = PromptThread::new(self.path.clone(), make_prompt)
+    fn revive(&mut self, make_prompt: &Fn() -> PromptBuffer) -> PromptBufferResult<()> {
+        *self = try!(PromptThread::new(self.path.clone(), make_prompt));
+        Ok(())
     }
 
     /// Gets a result out of the prompt thread, or return a cached result
     /// if the response takes more than 100 milliseconds
-    pub fn get(&mut self, make_prompt: &Fn() -> PromptBuffer) -> String {
+    pub fn get(&mut self, make_prompt: &Fn() -> PromptBuffer) -> PromptBufferResult<String> {
         if !self.is_alive() {
-            self.revive(make_prompt);
+            try!(self.revive(make_prompt));
         }
 
-        self.send.send(()).unwrap();
+        try!(self.send.send(()));
 
         let timeout = oneshot_timer(Duration::from_millis(100));
 
@@ -109,12 +109,12 @@ impl PromptThread {
                 }
 
                 self.cached = text;
-                return self.cached.clone();
+                return Ok(self.cached.clone());
             }
 
             // We ran out of time!
             if let Ok(_) = timeout.try_recv() {
-                return self.cached.clone();
+                return Ok(self.cached.clone());
             }
 
             thread::sleep_ms(1);

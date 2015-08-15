@@ -17,7 +17,7 @@ trait RelativePath {
 impl RelativePath for PathBuf {
     fn make_relative(self, base: &Path) -> Option<PathBuf> {
         if self.starts_with(base) {
-            Some(self.relative_from(base).unwrap().to_path_buf())
+            Some(self.relative_from(base).expect("starts_with is a liar").to_path_buf())
         } else {
             let mut b = base.to_path_buf();
             if b.pop() {
@@ -131,11 +131,11 @@ fn git_branch(repo: &Repository) -> Result<BranchInfo, Error> {
     }
 
     match repo.head() {
-        Ok(r) => match repo.find_object(r.target().unwrap(), None) {
+        Ok(r) => match repo.find_object(r.target().expect("Unable to find target"), None) {
             Ok(obj) => {
-                let sid = obj.short_id().ok().unwrap();
+                let sid = obj.short_id().ok().expect("Object has no short_id");
                 let s = sid.as_str();
-                let short_id = s.unwrap();
+                let short_id = s.expect("Unable to convert short id to string");
                 Ok(BranchInfo {
                     name: Some(format!("{}", short_id)),
                     upstream: Some("?".to_owned())
@@ -156,7 +156,7 @@ impl GitPlugin {
     pub fn new() -> GitPlugin {
         GitPlugin {
             repo: None,
-            path: env::current_dir().unwrap()
+            path: env::current_dir().expect("There is no current directory!")
         }
     }
 
@@ -167,6 +167,7 @@ impl GitPlugin {
         }
     }
 
+    #[allow(explicit_iter_loop)]
     fn status(&self, buffer: &mut PromptLines, path: &Path) -> Result<bool, Error> {
         let repo = try!(self.get_repo());
 
@@ -176,7 +177,7 @@ impl GitPlugin {
         ));
 
         let make_path_relative = |current: &Path| {
-            let mut fullpath = repo.workdir().unwrap().to_path_buf();
+            let mut fullpath = repo.workdir().expect("Repo has no working dir").to_path_buf();
             fullpath.push(current);
             fullpath.make_relative(path).unwrap_or(PathBuf::from("/"))
         };
@@ -203,8 +204,8 @@ impl GitPlugin {
 
                 let val = format!("{} {}", status, match diff {
                     Some(delta) => {
-                        let old = make_path_relative(delta.old_file().path().unwrap());
-                        let new = make_path_relative(delta.new_file().path().unwrap());
+                        let old = make_path_relative(delta.old_file().path().expect("no old file"));
+                        let new = make_path_relative(delta.new_file().path().expect("no new file"));
 
                         if old != new {
                             format!("{} -> {}", old.display(), new.display())
@@ -212,7 +213,7 @@ impl GitPlugin {
                             format!("{}", old.display())
                         }
                     },
-                    None => format!("{}", Path::new(stat.path().unwrap()).display())
+                    None => format!("{}", Path::new(stat.path().expect("No status path")).display())
                 });
 
                 line = match status.index {
@@ -288,7 +289,7 @@ impl GitPlugin {
                 .build());
         }
 
-        return Ok(log_shown);
+        Ok(log_shown)
     }
 
     fn end(&self, buffer: &mut PromptLines, indented: bool) -> Result<bool, Error> {

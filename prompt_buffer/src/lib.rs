@@ -18,7 +18,6 @@
 )]
 
 #![feature(
-    duration,
     mpsc_select,
     plugin,
 )]
@@ -30,3 +29,4 @@ pub mod buffer;
 pub mod thread;
 pub mod line;
 pub mod escape;
+pub mod error;

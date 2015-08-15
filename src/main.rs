@@ -13,12 +13,17 @@
     clippy
 )]
 
+// Some buggy clippy lints
+#![allow(
+    non_ascii_literal
+)]
+
 #![feature(
-    duration,
     mpsc_select,
     path_ext,
     path_relative_from,
     plugin,
+    result_expect
 )]
 
 #![plugin(clippy)]
@@ -27,6 +32,7 @@ extern crate term;
 extern crate git2;
 extern crate unix_socket;
 extern crate prompt_buffer;
+extern crate time;
 
 use prompt_buffer::thread::PromptThread;
 use prompt_buffer::buffer::PromptBuffer;
@@ -35,12 +41,13 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{Write, Read};
 
+use time::Duration;
+
 use unix_socket::{
     UnixListener,
     UnixStream,
 };
 use std::env;
-use std::time::Duration;
 use std::fs::PathExt;
 use std::path::{Path, PathBuf};
 use std::net::Shutdown;
@@ -91,11 +98,13 @@ enum RunMode {
 #[allow(dead_code)]
 fn main() {
     let args: Vec<String> = env::args().collect();
-    run(match args.len() {
-        2 => RunMode::Daemon,
-        1 => RunMode::Main,
-        _ => panic!("Number of arguments must be 0 or 1")
-    });
+    println!("{}ms $ ", Duration::span(|| {
+        run(match args.len() {
+            2 => RunMode::Daemon,
+            1 => RunMode::Main,
+            _ => panic!("Number of arguments must be 0 or 1")
+        });
+    }).num_milliseconds());
 }
 
 fn do_daemon(socket_path: &Path) {
@@ -120,7 +129,10 @@ fn do_daemon(socket_path: &Path) {
     println!("BIND");
 
     for connection in stream.incoming() {
-        let c = &mut connection.unwrap();
+        let mut c = match connection {
+            Ok(c) => c,
+            Err(_) => continue
+        };
 
         let mut output = String::new();
         let _  = sock_try!(c.read_to_string(&mut output));
@@ -128,8 +140,8 @@ fn do_daemon(socket_path: &Path) {
         println!("Preparing to respond to for {}", output.display());
 
         let keys: Vec<PathBuf> = threads.keys().map(|x| { x.clone() }).collect();
-        for path in keys.iter() {
-            if !threads.get_mut(path).unwrap().is_alive() {
+        for path in &keys {
+            if !threads.get_mut(path).expect("thread not there!").is_alive() {
                 println!("- Remove thread {}", path.display());
                 let _ = threads.remove(path);
             }
@@ -137,16 +149,17 @@ fn do_daemon(socket_path: &Path) {
 
         if !threads.contains_key(&output) {
             println!("+ Add thread {}", output.display());
-            let _ = threads.insert(output.clone(), PromptThread::new(output.clone(), &get_prompt));
+            let t = sock_try!(PromptThread::new(output.clone(), &get_prompt));
+            let _ = threads.insert(output.clone(), t);
         }
 
         for path in threads.keys() {
             println!("* Active thread {}", path.display());
         }
 
-        let mut thr = threads.get_mut(&output).unwrap();
+        let mut thr = threads.get_mut(&output).expect("Thread not present");
 
-        sock_try!(write!(c, "{}", thr.get(&get_prompt)));
+        sock_try!(write!(c, "{}", sock_try!(thr.get(&get_prompt))));
 
         println!("");
 
@@ -161,10 +174,8 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        let time = dur.secs() * 1000 + dur.extra_nanos() as u64 / 1000000;
-        thread::sleep_ms(time as u32);
-
-        tx.send(()).unwrap();
+        thread::sleep_ms(dur.num_milliseconds() as u32);
+        let _ = tx.send(());
     });
 
     rx
@@ -175,28 +186,20 @@ fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String,Str
 
     let _ = thread::spawn(move || {
         let mut ret = String::new();
-        stream.read_to_string(&mut ret).unwrap();
-        tx.send(ret).unwrap();
+        stream.read_to_string(&mut ret).expect("Unable to read from string");
+        let _ = tx.send(ret);
     });
 
     let timeout = oneshot_timer(dur);
 
     select! {
-        resp = rx.recv() => Ok(resp.unwrap()),
+        resp = rx.recv() => Ok(resp.expect("There is no response!")),
         _ = timeout.recv() => Err("Timeout".to_owned())
     }
 }
 
 fn do_main(socket_path: &Path) {
-    let is_running = match Command::new("megapromptd").arg("status").output() {
-        Ok(output) => String::from_utf8_lossy(output.stdout.as_ref()).contains("is running"),
-        Err(_) => false
-    };
-
-    if !is_running {
-        let _ = Command::new("megapromptd").arg("start").output();
-        thread::sleep_ms(10);
-    }
+    let _ = Command::new("megapromptd").arg("start").output();
 
     let mut stream = match UnixStream::connect(socket_path) {
         Err(_) => {
@@ -207,10 +210,12 @@ fn do_main(socket_path: &Path) {
         Ok(stream) => stream
     };
 
-    write!(&mut stream, "{}", env::current_dir().unwrap().display()).unwrap();
-    stream.shutdown(Shutdown::Write).unwrap();
+    write!(&mut stream, "{}",
+           env::current_dir().expect("There is no current dir").display())
+        .expect("Unable to print current directory");
+    stream.shutdown(Shutdown::Write).expect("Cannot shutdown stream");
 
-    match read_with_timeout(stream, Duration::from_millis(200)) {
+    match read_with_timeout(stream, Duration::milliseconds(100)) {
         Ok(s) => println!("{}", s),
         Err(_) => {
             println!("Response too slow");

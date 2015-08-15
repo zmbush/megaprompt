@@ -79,7 +79,7 @@ impl PromptBufferPlugin for DueDatePlugin {
             path.push(".due");
 
             if path.is_file() {
-                let mut reader = BufReader::new(File::open(&path).unwrap());
+                let mut reader = BufReader::new(File::open(&path).expect("Unable to open file"));
 
                 let mut line = |s: &str| {
                     let mut line = String::new();

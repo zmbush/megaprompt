@@ -5,7 +5,6 @@ authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
 
 [dependencies]
 git2 = "*"
-log = "*"
 term = "*"
 time = "*"
 unix_socket = "*"

@@ -56,12 +56,12 @@ impl PromptBuffer {
     pub fn new() -> PromptBuffer {
         PromptBuffer {
             plugins: Vec::new(),
-            path: env::current_dir().unwrap()
+            path: env::current_dir().unwrap_or(PathBuf::new())
         }
     }
 
     fn get_line(flags: i16) -> char {
-        return match flags {
+        match flags {
             c if c == TOP | BOTTOM | LEFT | RIGHT => '┼',
             c if c == TOP | BOTTOM | LEFT         => '┤',
             c if c == TOP | BOTTOM        | RIGHT => '├',
@@ -116,13 +116,12 @@ impl PromptBuffer {
         self.start(&mut lines);
 
         if !speed.is_ignored() {
-            for p in self.plugins.iter_mut() {
+            for p in &mut self.plugins {
                 p.run(&speed, &self.path, &mut lines);
             }
         }
 
-        for ix in 0 .. lines.len() {
-            let ref line = lines[ix];
+        for (ix, ref line) in lines.iter().enumerate() {
             let current = line.level;
             let (after, start, end) = if ix + 1 < lines.len() {
                 let a = lines[ix + 1].level;
@@ -156,7 +155,7 @@ impl PromptBuffer {
                 );
             }
 
-            for b in line.parts.iter() {
+            for b in &line.parts {
                 line_text = match line.line_type {
                     PromptLineType::Boxed => format!("{}{}{}{}{}",
                         line_text,
