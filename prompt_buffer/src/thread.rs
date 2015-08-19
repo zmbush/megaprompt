@@ -16,7 +16,7 @@ use error::PromptBufferResult;
 pub struct PromptThread {
     send: Sender<()>,
     recv: Receiver<String>,
-    death: Receiver<()>,
+    death: Receiver<String>,
     path: PathBuf,
     cached: String,
     alive: bool,
@@ -26,7 +26,7 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        thread::sleep_ms(dur.as_secs() as u32);
+        thread::sleep_ms((dur.as_secs() as u32) * 1000);
 
         let _ = tx.send(());
     });
@@ -57,7 +57,7 @@ impl PromptThread {
                         }
                     },
                     _ = timeout.recv() => {
-                        let _ = tx_death.send(());
+                        let _ = tx_death.send("I died!".to_owned());
                         break;
                     }
                 }
@@ -79,7 +79,8 @@ impl PromptThread {
 
     /// Checks whether a prompt thread has announced it's death.
     pub fn is_alive(&mut self) -> bool {
-        if self.death.try_recv().is_ok() {
+        if let Ok(msg) = self.death.try_recv() {
+            println!("{:?}", msg);
             self.alive = false;
         }
 
