@@ -10,7 +10,7 @@ use term::color;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
-trait RelativePath {
+trait RelativePath: Sized {
     fn make_relative(self, base: &Path) -> Option<Self>;
 }
 
