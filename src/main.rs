@@ -33,6 +33,8 @@ extern crate git2;
 extern crate unix_socket;
 extern crate prompt_buffer;
 extern crate time;
+#[macro_use] extern crate log;
+extern crate log4rs;
 
 use prompt_buffer::thread::PromptThread;
 use prompt_buffer::buffer::PromptBuffer;
@@ -42,6 +44,7 @@ use std::fs;
 use std::io::{Write, Read};
 
 use time::Duration;
+use log4rs::{config, appender};
 
 use unix_socket::{
     UnixListener,
@@ -113,12 +116,26 @@ fn do_daemon(socket_path: &Path) {
 
     // let _ = stdio::set_stdout(Box::new(File::create(&stdout_path)));
     // let _ = stdio::set_stderr(Box::new(File::create(&stderr_path)));
+    log4rs::init_config(
+        config::Config::builder(
+            config::Root::builder(log::LogLevelFilter::Trace)
+            .appender("main".to_owned())
+            .build())
+        .appender(
+            config::Appender::builder(
+                "main".to_owned(), Box::new(appender::FileAppender::builder(
+                    "/var/log/megaprompt/current.out")
+                .build().expect("Unable to create file appender")))
+            .build())
+        .build().expect("Unable to create config")
+    ).expect("Unable to init logger");
+    // log4rs::init_file("~/.megaprompt.toml", Default::default()).expect("Couldn't start logger");
 
     let last_modified = exe_changed();
     let mut threads: HashMap<PathBuf, PromptThread> = HashMap::new();
 
     if socket_path.exists() {
-        fs::remove_file(socket_path).ok().expect("Unable to remove file");
+        fs::remove_file(socket_path).expect("Unable to remove socket file");
     }
 
     let stream = match UnixListener::bind(socket_path) {
@@ -126,7 +143,7 @@ fn do_daemon(socket_path: &Path) {
         Ok(stream) => stream
     };
 
-    println!("BIND");
+    info!("BIND");
 
     for connection in stream.incoming() {
         let mut c = match connection {
@@ -137,33 +154,34 @@ fn do_daemon(socket_path: &Path) {
         let mut output = String::new();
         let _  = sock_try!(c.read_to_string(&mut output));
         let output = PathBuf::from(&output);
-        println!("Preparing to respond to for {}", output.display());
+        info!("Preparing to respond to for {}", output.display());
 
         let keys: Vec<PathBuf> = threads.keys().map(|x| { x.clone() }).collect();
         for path in &keys {
             if !threads.get_mut(path).expect("thread not there!").is_alive() {
-                println!("- Remove thread {}", path.display());
+                info!("- Remove thread {}", path.display());
                 let _ = threads.remove(path);
             }
         }
 
         if !threads.contains_key(&output) {
-            println!("+ Add thread {}", output.display());
+            info!("+ Add thread {}", output.display());
             let t = sock_try!(PromptThread::new(output.clone(), &get_prompt));
             let _ = threads.insert(output.clone(), t);
         }
 
         for path in threads.keys() {
-            println!("* Active thread {}", path.display());
+            info!("* Active thread {}", path.display());
         }
 
         let mut thr = threads.get_mut(&output).expect("Thread not present");
 
         sock_try!(write!(c, "{}", sock_try!(thr.get(&get_prompt))));
 
-        println!("");
+        info!("");
 
         if last_modified != exe_changed() {
+            warn!("Found newer version of myself. Quitting.");
             sock_try!(write!(c, "♻  "));
             return;
         }

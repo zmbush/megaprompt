@@ -8,6 +8,8 @@ git2 = "*"
 term = "*"
 time = "*"
 unix_socket = "*"
+log = "*"
+log4rs = "*"
 
 [dependencies.prompt_buffer]
 path = "prompt_buffer"
