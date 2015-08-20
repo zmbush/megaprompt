@@ -324,9 +324,13 @@ impl PromptBufferPlugin for GitPlugin {
         }
 
         let st = match *speed {
-            PluginSpeed::Slow => self.status(lines, path).ok().unwrap_or(false),
+            PluginSpeed::Slow => {
+                trace!("Finding git status");
+                self.status(lines, path).ok().unwrap_or(false)
+            },
             _ => false,
         };
+        trace!("Finding outgoing commits");
         let out = self.outgoing(lines, st).ok().unwrap_or(false);
         let _ = self.end(lines, st || out).ok();
     }

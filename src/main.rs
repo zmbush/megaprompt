@@ -125,6 +125,7 @@ fn do_daemon(socket_path: &Path) {
             config::Appender::builder(
                 "main".to_owned(), Box::new(appender::FileAppender::builder(
                     "/var/log/megaprompt/current.out")
+                .pattern(log4rs::pattern::PatternLayout::new("%l\t%t\t- %m").expect("Bad format"))
                 .build().expect("Unable to create file appender")))
             .build())
         .build().expect("Unable to create config")
