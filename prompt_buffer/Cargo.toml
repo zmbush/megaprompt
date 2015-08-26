@@ -6,6 +6,7 @@ authors = ["Zachary Bush <zachary.bush@meraki.net>"]
 
 [dependencies]
 term = "*"
+log = "*"
 
 [dependencies.clippy]
 git = "https://github.com/Manishearth/rust-clippy"

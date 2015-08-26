@@ -16,7 +16,7 @@ use error::PromptBufferResult;
 pub struct PromptThread {
     send: Sender<()>,
     recv: Receiver<String>,
-    death: Receiver<String>,
+    death: Receiver<()>,
     path: PathBuf,
     cached: String,
     alive: bool,
@@ -44,20 +44,23 @@ impl PromptThread {
         let p = path.clone();
         let mut prompt = make_prompt();
         let cached = prompt.to_string_ext(PluginSpeed::Fast);
-        try!(thread::Builder::new().name(format!("{}", path.display())).spawn(move || {
+        let name = format!("{}", path.display());
+        try!(thread::Builder::new().name(name.clone()).spawn(move || {
             prompt.set_path(p);
 
             loop {
-                let timeout = oneshot_timer(Duration::from_secs(10*60));
+                let timeout = oneshot_timer(Duration::from_secs(2*60));
 
                 select! {
                     _ = rx_notify.recv() => {
+                        info!("Thread {} responding", name);
                         if let Err(_) = tx_prompt.send(prompt.to_string()) {
                             return;
                         }
                     },
                     _ = timeout.recv() => {
-                        let _ = tx_death.send("I died!".to_owned());
+                        info!("Thread {} timed out", name);
+                        let _ = tx_death.send(());
                         break;
                     }
                 }
@@ -79,8 +82,7 @@ impl PromptThread {
 
     /// Checks whether a prompt thread has announced it's death.
     pub fn is_alive(&mut self) -> bool {
-        if let Ok(msg) = self.death.try_recv() {
-            println!("{:?}", msg);
+        if let Ok(_) = self.death.try_recv() {
             self.alive = false;
         }
 

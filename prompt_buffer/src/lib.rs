@@ -23,6 +23,7 @@
 )]
 #![plugin(clippy)]
 
+#[macro_use] extern crate log;
 extern crate term;
 
 pub mod buffer;
