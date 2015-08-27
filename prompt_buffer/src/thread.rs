@@ -12,6 +12,8 @@ use std::path::PathBuf;
 use buffer::{PromptBuffer, PluginSpeed};
 use error::PromptBufferResult;
 
+use num;
+
 /// Stores information about prompt threads
 pub struct PromptThread {
     send: Sender<()>,
@@ -22,11 +24,14 @@ pub struct PromptThread {
     alive: bool,
 }
 
+#[allow(cast_possible_truncation)]
 fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        thread::sleep_ms((dur.as_secs() as u32) * 1000);
+        let sleep_msecs: u32 = num::cast(dur.as_secs() * 1000)
+            .expect("Can't sleep for that many seconds");
+        thread::sleep_ms(sleep_msecs);
 
         let _ = tx.send(());
     });

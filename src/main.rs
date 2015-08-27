@@ -35,6 +35,7 @@ extern crate prompt_buffer;
 extern crate time;
 #[macro_use] extern crate log;
 extern crate log4rs;
+extern crate num;
 
 use prompt_buffer::thread::PromptThread;
 use prompt_buffer::buffer::PromptBuffer;
@@ -193,7 +194,7 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        thread::sleep_ms(dur.num_milliseconds() as u32);
+        thread::sleep_ms(num::cast(dur.num_milliseconds()).expect("Can't sleep for that long"));
         let _ = tx.send(());
     });
 

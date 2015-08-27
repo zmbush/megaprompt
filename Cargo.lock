@@ -2,10 +2,11 @@
 name = "Megaprompt"
 version = "0.1.0"
 dependencies = [
- "clippy 0.0.11 (git+https://github.com/Manishearth/rust-clippy)",
+ "clippy 0.0.12 (git+https://github.com/Manishearth/rust-clippy)",
  "git2 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log4rs 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "prompt_buffer 0.0.1",
  "term 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -28,8 +29,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "clippy"
-version = "0.0.11"
-source = "git+https://github.com/Manishearth/rust-clippy#150840667e4bc1782e6947cc53af94a37281ab38"
+version = "0.0.12"
+source = "git+https://github.com/Manishearth/rust-clippy#193e71be6123043b1e4d9fb5428d7e5f5d6fc4b6"
 
 [[package]]
 name = "cmake"
@@ -145,6 +146,15 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "num"
+version = "0.1.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "rand 0.3.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -172,8 +182,9 @@ dependencies = [
 name = "prompt_buffer"
 version = "0.0.1"
 dependencies = [
- "clippy 0.0.11 (git+https://github.com/Manishearth/rust-clippy)",
+ "clippy 0.0.12 (git+https://github.com/Manishearth/rust-clippy)",
  "log 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "term 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

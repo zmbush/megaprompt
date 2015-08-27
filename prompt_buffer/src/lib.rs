@@ -25,6 +25,7 @@
 
 #[macro_use] extern crate log;
 extern crate term;
+extern crate num;
 
 pub mod buffer;
 pub mod thread;
