@@ -20,10 +20,7 @@
 
 #![feature(
     mpsc_select,
-    path_ext,
-    path_relative_from,
     plugin,
-    result_expect
 )]
 
 #![plugin(clippy)]
@@ -33,7 +30,8 @@ extern crate git2;
 extern crate unix_socket;
 extern crate prompt_buffer;
 extern crate time;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 extern crate log4rs;
 extern crate num;
 
@@ -47,12 +45,8 @@ use std::io::{Write, Read};
 use time::Duration;
 use log4rs::{config, appender};
 
-use unix_socket::{
-    UnixListener,
-    UnixStream,
-};
+use unix_socket::{UnixListener, UnixStream};
 use std::env;
-use std::fs::PathExt;
 use std::path::{Path, PathBuf};
 use std::net::Shutdown;
 use std::thread;
@@ -76,10 +70,10 @@ fn exe_changed() -> i64 {
         Ok(exe_path) => {
             match fs::metadata(exe_path) {
                 Ok(m) => m.mtime(),
-                Err(_) => 0i64
+                Err(_) => 0i64,
             }
-        },
-        Err(_) => 0i64
+        }
+        Err(_) => 0i64,
     }
 }
 
@@ -96,19 +90,21 @@ macro_rules! sock_try {
 enum RunMode {
     Daemon,
     Main,
-    Test
+    Test,
 }
 
 #[allow(dead_code)]
 fn main() {
     let args: Vec<String> = env::args().collect();
-    println!("{}ms $ ", Duration::span(|| {
-        run(match args.len() {
-            2 => RunMode::Daemon,
-            1 => RunMode::Main,
-            _ => panic!("Number of arguments must be 0 or 1")
-        });
-    }).num_milliseconds());
+    println!("{}ms $ ",
+             Duration::span(|| {
+                 run(match args.len() {
+                     2 => RunMode::Daemon,
+                     1 => RunMode::Main,
+                     _ => panic!("Number of arguments must be 0 or 1"),
+                 });
+             })
+                 .num_milliseconds());
 }
 
 fn do_daemon(socket_path: &Path) {
@@ -142,7 +138,7 @@ fn do_daemon(socket_path: &Path) {
 
     let stream = match UnixListener::bind(socket_path) {
         Err(_) => panic!("Failed to bind to socket"),
-        Ok(stream) => stream
+        Ok(stream) => stream,
     };
 
     info!("BIND");
@@ -150,17 +146,17 @@ fn do_daemon(socket_path: &Path) {
     for connection in stream.incoming() {
         let mut c = match connection {
             Ok(c) => c,
-            Err(_) => continue
+            Err(_) => continue,
         };
 
         let mut output = String::new();
-        let _  = sock_try!(c.read_to_string(&mut output));
+        let _ = sock_try!(c.read_to_string(&mut output));
         let output = PathBuf::from(&output);
         info!("Preparing to respond to for {}", output.display());
 
-        let keys: Vec<PathBuf> = threads.keys().map(|x| { x.clone() }).collect();
+        let keys: Vec<PathBuf> = threads.keys().cloned().collect();
         for path in &keys {
-            if !threads.get_mut(path).expect("thread not there!").is_alive() {
+            if !threads.get_mut(path).expect("thread not there!").check_is_alive() {
                 info!("- Remove thread {}", path.display());
                 let _ = threads.remove(path);
             }
@@ -194,14 +190,14 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        thread::sleep_ms(num::cast(dur.num_milliseconds()).expect("Can't sleep for that long"));
+        thread::sleep(::std::time::Duration::from_millis(dur.num_milliseconds() as u64));
         let _ = tx.send(());
     });
 
     rx
 }
 
-fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String,String> {
+fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String, String> {
     let (tx, rx) = mpsc::channel();
 
     let _ = thread::spawn(move || {
@@ -226,11 +222,12 @@ fn do_main(socket_path: &Path) {
             println!("Can't connect");
             get_prompt().print();
             return;
-        },
-        Ok(stream) => stream
+        }
+        Ok(stream) => stream,
     };
 
-    write!(&mut stream, "{}",
+    write!(&mut stream,
+           "{}",
            env::current_dir().expect("There is no current dir").display())
         .expect("Unable to print current directory");
     stream.shutdown(Shutdown::Write).expect("Cannot shutdown stream");

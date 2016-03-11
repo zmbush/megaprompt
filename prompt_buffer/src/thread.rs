@@ -12,8 +12,6 @@ use std::path::PathBuf;
 use buffer::{PromptBuffer, PluginSpeed};
 use error::PromptBufferResult;
 
-use num;
-
 /// Stores information about prompt threads
 pub struct PromptThread {
     send: Sender<()>,
@@ -29,9 +27,7 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        let sleep_msecs: u32 = num::cast(dur.as_secs() * 1000)
-            .expect("Can't sleep for that many seconds");
-        thread::sleep_ms(sleep_msecs);
+        thread::sleep(dur);
 
         let _ = tx.send(());
     });
@@ -41,25 +37,26 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
 
 impl PromptThread {
     /// Creates a new prompt thread for a given path
-    pub fn new(path: PathBuf, make_prompt: &Fn() -> PromptBuffer) -> PromptBufferResult<PromptThread> {
+    pub fn new(path: PathBuf,
+               make_prompt: &Fn() -> PromptBuffer)
+               -> PromptBufferResult<PromptThread> {
         let (tx_notify, rx_notify) = mpsc::channel();
         let (tx_prompt, rx_prompt) = mpsc::channel();
         let (tx_death, rx_death) = mpsc::channel();
 
         let p = path.clone();
         let mut prompt = make_prompt();
-        let cached = prompt.to_string_ext(PluginSpeed::Fast);
+        let cached = prompt.convert_to_string_ext(PluginSpeed::Fast);
         let name = format!("{}", path.display());
-        try!(thread::Builder::new().name(name.clone()).spawn(move || {
+        try!(thread::Builder::new().name(name.to_owned()).spawn(move || {
             prompt.set_path(p);
 
             loop {
-                let timeout = oneshot_timer(Duration::from_secs(2*60));
+                let timeout = oneshot_timer(Duration::from_secs(10 * 60));
 
                 select! {
                     _ = rx_notify.recv() => {
-                        info!("Thread {} responding", name);
-                        if let Err(_) = tx_prompt.send(prompt.to_string()) {
+                        if let Err(_) = tx_prompt.send(prompt.convert_to_string()) {
                             return;
                         }
                     },
@@ -86,8 +83,8 @@ impl PromptThread {
     }
 
     /// Checks whether a prompt thread has announced it's death.
-    pub fn is_alive(&mut self) -> bool {
-        if let Ok(_) = self.death.try_recv() {
+    pub fn check_is_alive(&mut self) -> bool {
+        if self.death.try_recv().is_ok() {
             self.alive = false;
         }
 
@@ -102,7 +99,7 @@ impl PromptThread {
     /// Gets a result out of the prompt thread, or return a cached result
     /// if the response takes more than 100 milliseconds
     pub fn get(&mut self, make_prompt: &Fn() -> PromptBuffer) -> PromptBufferResult<String> {
-        if !self.is_alive() {
+        if !self.check_is_alive() {
             try!(self.revive(make_prompt));
         }
 
@@ -125,7 +122,7 @@ impl PromptThread {
                 return Ok(self.cached.clone());
             }
 
-            thread::sleep_ms(1);
+            thread::sleep(Duration::from_millis(1));
         }
     }
 }

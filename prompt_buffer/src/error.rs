@@ -9,10 +9,10 @@ pub type PromptBufferResult<T> = Result<T, PromptBufferError>;
 /// The base error type of PromptBuffer
 pub enum PromptBufferError {
     /// Error variant for IO errors
-    IOError(io::Error),
+    IO(io::Error),
 
     /// Error variant for channel send errors
-    SendError(mpsc::SendError<()>)
+    SendError(mpsc::SendError<()>),
 }
 
 macro_rules! convert_impl {
@@ -26,6 +26,6 @@ macro_rules! convert_impl {
 }
 
 convert_impl! {
-    io::Error => IOError,
+    io::Error => IO,
     mpsc::SendError<()> => SendError
 }

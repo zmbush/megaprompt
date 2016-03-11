@@ -11,7 +11,7 @@ pub enum PromptLineType {
     Boxed,
 
     /// Free => │ text
-    Free
+    Free,
 }
 
 /// PromptBox
@@ -23,7 +23,7 @@ pub enum PromptLineType {
 pub struct PromptBox {
     color: color::Color,
     text: String,
-    is_bold: bool
+    is_bold: bool,
 }
 
 impl PromptBox {
@@ -32,14 +32,22 @@ impl PromptBox {
         PromptBox {
             color: color,
             text: t,
-            is_bold: is_bold
+            is_bold: is_bold,
         }
     }
 }
 
 impl fmt::Display for PromptBox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}{}", if self.is_bold { bcol(self.color) } else { col(self.color) }, self.text, reset())
+        write!(f,
+               "{}{}{}",
+               if self.is_bold {
+                   bcol(self.color)
+               } else {
+                   col(self.color)
+               },
+               self.text,
+               reset())
     }
 }
 
@@ -56,13 +64,19 @@ pub struct PromptLine {
     pub parts: Vec<PromptBox>,
 }
 
-impl PromptLine {
-    fn new() -> PromptLine {
+impl Default for PromptLine {
+    fn default() -> PromptLine {
         PromptLine {
             level: 0,
             line_type: PromptLineType::Boxed,
             parts: Vec::new(),
         }
+    }
+}
+
+impl PromptLine {
+    fn new() -> PromptLine {
+        PromptLine::default()
     }
 
     fn new_free() -> PromptLine {
@@ -78,23 +92,20 @@ pub type PromptLines = Vec<PromptLine>;
 /// PromptLineBuilder
 ///
 /// Used to easily construct PromptLines
+#[derive(Default)]
 pub struct PromptLineBuilder {
-    line: PromptLine
+    line: PromptLine,
 }
 
 impl PromptLineBuilder {
     /// Creates a Boxed PromptLineBuilder
     pub fn new() -> PromptLineBuilder {
-        PromptLineBuilder {
-            line: PromptLine::new()
-        }
+        PromptLineBuilder::default()
     }
 
     /// Creates a Free PromptLineBuilder
     pub fn new_free() -> PromptLineBuilder {
-        PromptLineBuilder {
-            line: PromptLine::new_free()
-        }
+        PromptLineBuilder { line: PromptLine::new_free() }
     }
 
     /// Increases indent by amt
@@ -110,13 +121,11 @@ impl PromptLineBuilder {
     }
 
     fn add_block<T: fmt::Display>(mut self, s: T, c: u16, bold: bool) -> PromptLineBuilder {
-        self.line.parts.push(
-            PromptBox {
-                color: c,
-                text: format!("{}", s),
-                is_bold: bold
-            }
-        );
+        self.line.parts.push(PromptBox {
+            color: c,
+            text: format!("{}", s),
+            is_bold: bold,
+        });
 
         self
     }
