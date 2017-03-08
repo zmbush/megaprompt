@@ -14,7 +14,7 @@ pub enum PromptLineType {
     Free,
 }
 
-/// PromptBox
+/// `PromptBox`
 ///
 /// The smallest component of a prompt line
 ///
@@ -51,7 +51,7 @@ impl fmt::Display for PromptBox {
     }
 }
 
-/// PromptLine
+/// `PromptLine`
 ///
 /// The small pieces used to display prompt lines
 #[derive(Clone)]
@@ -86,24 +86,24 @@ impl PromptLine {
     }
 }
 
-/// A list of PromptLines
+/// A list of `PromptLines`
 pub type PromptLines = Vec<PromptLine>;
 
-/// PromptLineBuilder
+/// `PromptLineBuilder`
 ///
-/// Used to easily construct PromptLines
+/// Used to easily construct `PromptLines`
 #[derive(Default)]
 pub struct PromptLineBuilder {
     line: PromptLine,
 }
 
 impl PromptLineBuilder {
-    /// Creates a Boxed PromptLineBuilder
+    /// Creates a Boxed `PromptLineBuilder`
     pub fn new() -> PromptLineBuilder {
         PromptLineBuilder::default()
     }
 
-    /// Creates a Free PromptLineBuilder
+    /// Creates a Free `PromptLineBuilder`
     pub fn new_free() -> PromptLineBuilder {
         PromptLineBuilder { line: PromptLine::new_free() }
     }

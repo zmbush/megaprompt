@@ -201,8 +201,8 @@ impl GitPlugin {
 
     #[allow(explicit_iter_loop)]
     fn status(&self, buffer: &mut PromptLines, path: &Path) -> Result<bool, Error> {
-        fn file_state_color(state: StatusTypes) -> u16 {
-            match state {
+        fn file_state_color(state: &StatusTypes) -> u16 {
+            match *state {
                 StatusTypes::Clean | StatusTypes::Untracked => color::WHITE,
                 StatusTypes::Deleted => color::RED,
                 StatusTypes::Modified => color::BLUE,
@@ -273,11 +273,11 @@ impl GitPlugin {
                                   });
 
                 line = match status.index {
-                    StatusTypes::Clean => line.colored_block(val, file_state_color(status.workdir)),
+                    StatusTypes::Clean => line.colored_block(val, file_state_color(&status.workdir)),
                     _ => {
                         match status.workdir {
                             StatusTypes::Clean | StatusTypes::Untracked => {
-                                line.bold_colored_block(val, file_state_color(status.index))
+                                line.bold_colored_block(val, file_state_color(&status.index))
                             }
                             _ => line.bold_colored_block(val, color::RED),
                         }

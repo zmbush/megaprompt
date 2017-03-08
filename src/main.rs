@@ -43,7 +43,9 @@ use std::fs;
 use std::io::{Write, Read};
 
 use time::Duration;
-use log4rs::{config, appender};
+use log4rs::config;
+use log4rs::append::file::FileAppender;
+use log4rs::encode::pattern::PatternEncoder;
 
 use unix_socket::{UnixListener, UnixStream};
 use std::env;
@@ -98,7 +100,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     println!("{}ms $ ",
              Duration::span(|| {
-                 run(match args.len() {
+                 run(&match args.len() {
                      2 => RunMode::Daemon,
                      1 => RunMode::Main,
                      _ => panic!("Number of arguments must be 0 or 1"),
@@ -113,21 +115,33 @@ fn do_daemon(socket_path: &Path) {
 
     // let _ = stdio::set_stdout(Box::new(File::create(&stdout_path)));
     // let _ = stdio::set_stderr(Box::new(File::create(&stderr_path)));
+    let main_log = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{d} - {m}{n}")))
+        .build("/var/log/megaprompt/current.out")
+        .expect("Unable to create file appender");
+
+    let config = config::Config::builder()
+        .appender(config::Appender::builder().build("main", Box::new(main_log)))
+        .build(config::Root::builder().appender("main").build(log::LogLevelFilter::Trace))
+        .expect("Unable to create logger config");
+
+    log4rs::init_config(config).expect("Unable to init logger");
+/*
     log4rs::init_config(
         config::Config::builder(
             config::Root::builder(log::LogLevelFilter::Trace)
             .appender("main".to_owned())
             .build())
-        .appender(
+        .appender(config::Appender::builder().build("main", Box::new(FileAppender::builder().build("/var/log/megaprompt/current.out").expect("Unable to create file appender"))))
             config::Appender::builder(
-                "main".to_owned(), Box::new(appender::FileAppender::builder(
+                "main".to_owned(), Box::new(FileAppender::builder(
                     "/var/log/megaprompt/current.out")
                 .pattern(log4rs::pattern::PatternLayout::new("%l\t%t\t- %m").expect("Bad format"))
                 .build().expect("Unable to create file appender")))
             .build())
         .build().expect("Unable to create config")
     ).expect("Unable to init logger");
-    // log4rs::init_file("~/.megaprompt.toml", Default::default()).expect("Couldn't start logger");
+    // log4rs::init_file("~/.megaprompt.toml", Default::default()).expect("Couldn't start logger");*/
 
     let last_modified = exe_changed();
     let mut threads: HashMap<PathBuf, PromptThread> = HashMap::new();
@@ -137,7 +151,7 @@ fn do_daemon(socket_path: &Path) {
     }
 
     let stream = match UnixListener::bind(socket_path) {
-        Err(_) => panic!("Failed to bind to socket"),
+        Err(_) => unreachable!("unable to bind to socket"),
         Ok(stream) => stream,
     };
 
@@ -242,12 +256,12 @@ fn do_main(socket_path: &Path) {
     }
 }
 
-fn run(mode: RunMode) {
+fn run(mode: &RunMode) {
     let socket_path = Path::new("/tmp/megaprompt-socket");
 
-    match mode {
-        RunMode::Daemon => do_daemon(&socket_path),
-        RunMode::Main => do_main(&socket_path),
+    match *mode {
+        RunMode::Daemon => do_daemon(socket_path),
+        RunMode::Main => do_main(socket_path),
         RunMode::Test => {}
     }
 }

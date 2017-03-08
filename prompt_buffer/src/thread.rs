@@ -1,6 +1,6 @@
 //! Used to allow a thread per path. This way the cached value can be
 //! different based on which path it is running from. For paths with
-//! slow prompt.to_string outputs, this is particularily useful.
+//! slow `prompt.to_string` outputs, this is particularily useful.
 //!
 //! Thred will run for 10 minutes after the last request, to avoid
 //! leaking too many threads.
@@ -56,7 +56,7 @@ impl PromptThread {
 
                 select! {
                     _ = rx_notify.recv() => {
-                        if let Err(_) = tx_prompt.send(prompt.convert_to_string()) {
+                        if tx_prompt.send(prompt.convert_to_string()).is_err() {
                             return;
                         }
                     },
@@ -118,7 +118,7 @@ impl PromptThread {
             }
 
             // We ran out of time!
-            if let Ok(_) = timeout.try_recv() {
+            if timeout.try_recv().is_ok() {
                 return Ok(self.cached.clone());
             }
 

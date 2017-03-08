@@ -1,12 +1,12 @@
-//! This module contains error object for PromptBuffer
+//! This module contains error object for `PromptBuffer`
 use std::io;
 use std::convert;
 use std::sync::mpsc;
 
-/// Convenience wrapper for Result<T, PromptBufferError>
+/// Convenience wrapper for `Result<T, PromptBufferError>`
 pub type PromptBufferResult<T> = Result<T, PromptBufferError>;
 
-/// The base error type of PromptBuffer
+/// The base error type of `PromptBuffer`
 pub enum PromptBufferError {
     /// Error variant for IO errors
     IO(io::Error),

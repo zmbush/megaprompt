@@ -9,7 +9,7 @@ use term::color;
 use self::lines::*;
 use line::{PromptBox, PromptLineBuilder, PromptLines, PromptLineType};
 
-/// Defines the speed at which to run the to_string method
+/// Defines the speed at which to run the `to_string` method
 #[derive(Clone, Copy)]
 pub enum PluginSpeed {
     /// Don't run plugin
@@ -38,10 +38,10 @@ mod lines {
     pub const RIGHT: i16 = 1;
 }
 
-/// PromptBuffer
+/// `PromptBuffer`
 ///
-/// Used to contain a list of PromptLines
-/// Knows how to format a serise of PromptLines in a pretty way
+/// Used to contain a list of `PromptLines`
+/// Knows how to format a serise of `PromptLines` in a pretty way
 pub struct PromptBuffer {
     plugins: Vec<Box<PromptBufferPlugin>>,
     path: PathBuf,
@@ -57,7 +57,7 @@ impl Default for PromptBuffer {
 }
 
 impl PromptBuffer {
-    /// Construct a new default PromptBuffer
+    /// Construct a new default `PromptBuffer`
     pub fn new() -> PromptBuffer {
         PromptBuffer::default()
     }
@@ -123,7 +123,7 @@ impl PromptBuffer {
             }
         }
 
-        for (ix, ref line) in lines.iter().enumerate() {
+        for (ix, line) in lines.iter().enumerate() {
             let current = line.level;
             let (after, start, end) = if ix + 1 < lines.len() {
                 let a = lines[ix + 1].level;
@@ -212,7 +212,7 @@ impl PromptBuffer {
     }
 }
 
-/// Implement this trait to allow extension of the PromptBuffer's result
+/// Implement this trait to allow extension of the `PromptBuffer`'s result
 pub trait PromptBufferPlugin: Send {
     /// Should append as many PromptLines as it wants to the lines Vec
     ///
