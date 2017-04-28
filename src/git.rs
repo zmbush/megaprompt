@@ -302,10 +302,10 @@ impl GitPlugin {
         let mut revwalk = try!(repo.revwalk());
 
         let from = try!(repo.revparse_single(branches.upstream
-                                                     .unwrap_or("HEAD".to_owned())
+                                                     .unwrap_or_else(|| "HEAD".to_owned())
                                                      .as_ref()))
                        .id();
-        let to = try!(repo.revparse_single(branches.name.unwrap_or("HEAD".to_owned()).as_ref()))
+        let to = try!(repo.revparse_single(branches.name.unwrap_or_else(|| "HEAD".to_owned()).as_ref()))
                      .id();
 
         try!(revwalk.push(to));
