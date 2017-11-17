@@ -2,7 +2,7 @@
 PATH=/sbin:/usr/sbin:/bin:/usr/bin:$HOME/bin
 DESC="the background process for"
 NAME=megaprompt
-DAEMON=$HOME/bin/megaprompt
+DAEMON=$HOME/.cargo/bin/megaprompt
 DAEMON_ARGS="--daemon"
 PIDFILE=$HOME/.run/$NAME.pid
 LOG=$HOME/.run/$NAME
