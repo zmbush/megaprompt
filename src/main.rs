@@ -305,5 +305,5 @@ fn run(mode: RunMode, shell: ShellType) {
 
 #[test]
 fn test_main_does_not_error() {
-    run(RunMode::Test);
+    run(RunMode::Test, ShellType::Bash);
 }
