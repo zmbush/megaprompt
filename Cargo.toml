@@ -1,7 +1,11 @@
 [package]
 name = "Megaprompt"
-version = "0.1.0"
-authors = [ "Zachary Bush <zabu.other@gmail.com>" ]
+version = "1.0.0"
+publish = false
+authors = [ "Zachary Bush <zach@zmbush.com>" ]
+homepage = "https://github.com/zmbush/megaprompt"
+description = "A prompt designed by Zach Bush. It works for him. Feel free to use it"
+license = "Apache-2.0/MIT"
 
 [dependencies]
 git2 = "*"

@@ -1,3 +1,11 @@
+// Copyright 2017 Zachary Bush.
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
 #![deny(unused_allocation, unused_attributes, unused_features, unused_import_braces,
         unused_parens, unused_must_use, stable_features, bad_style, unused)]
 
@@ -75,9 +83,11 @@ enum RunMode {
 
 #[allow(dead_code)]
 fn main() {
-    let matches = App::new("Megaprompt")
-        .version("0.1.0")
-        .author("Zachary Bush <zach@zmbush.com>")
+    let matches = App::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about(env!("CARGO_PKG_DESCRIPTION"))
+        .after_help(env!("CARGO_PKG_HOMEPAGE"))
         .arg(
             Arg::with_name("daemon")
                 .short("d")
