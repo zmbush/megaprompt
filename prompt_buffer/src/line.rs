@@ -1,11 +1,11 @@
 //! Utilities and tools for drawing prompt lines
+
 use std::fmt;
 use term::color;
-
-use escape::*;
+use shell::ShellType;
 
 /// The possible types for prompt lines
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 pub enum PromptLineType {
     /// Boxed => ┤text├
     Boxed,
@@ -24,30 +24,34 @@ pub struct PromptBox {
     color: color::Color,
     text: String,
     is_bold: bool,
+    shell: ShellType,
 }
 
 impl PromptBox {
     /// Creates a prompt box
-    pub fn create(t: String, color: color::Color, is_bold: bool) -> PromptBox {
+    pub fn new(text: String, color: color::Color, is_bold: bool, shell: ShellType) -> PromptBox {
         PromptBox {
-            color: color,
-            text: t,
-            is_bold: is_bold,
+            color,
+            text,
+            is_bold,
+            shell,
         }
     }
 }
 
 impl fmt::Display for PromptBox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "{}{}{}",
-               if self.is_bold {
-                   bcol(self.color)
-               } else {
-                   col(self.color)
-               },
-               self.text,
-               reset())
+        write!(
+            f,
+            "{}{}{}",
+            if self.is_bold {
+                self.shell.bcol(self.color)
+            } else {
+                self.shell.col(self.color)
+            },
+            self.text,
+            self.shell.reset()
+        )
     }
 }
 
@@ -62,27 +66,25 @@ pub struct PromptLine {
     pub line_type: PromptLineType,
     /// The liste of boxes to use to construct the line
     pub parts: Vec<PromptBox>,
+    /// Shell type to output for
+    pub shell: ShellType,
 }
 
-impl Default for PromptLine {
-    fn default() -> PromptLine {
+impl PromptLine {
+    fn new(shell: ShellType) -> PromptLine {
         PromptLine {
             level: 0,
             line_type: PromptLineType::Boxed,
             parts: Vec::new(),
+            shell: shell,
         }
     }
-}
 
-impl PromptLine {
-    fn new() -> PromptLine {
-        PromptLine::default()
-    }
-
-    fn new_free() -> PromptLine {
-        let mut r = PromptLine::new();
-        r.line_type = PromptLineType::Free;
-        r
+    fn new_free(shell: ShellType) -> PromptLine {
+        PromptLine {
+            line_type: PromptLineType::Free,
+            ..PromptLine::new(shell)
+        }
     }
 }
 
@@ -92,20 +94,26 @@ pub type PromptLines = Vec<PromptLine>;
 /// `PromptLineBuilder`
 ///
 /// Used to easily construct `PromptLines`
-#[derive(Default)]
 pub struct PromptLineBuilder {
     line: PromptLine,
+    shell: ShellType,
 }
 
 impl PromptLineBuilder {
     /// Creates a Boxed `PromptLineBuilder`
-    pub fn new() -> PromptLineBuilder {
-        PromptLineBuilder::default()
+    pub(crate) fn new(shell: ShellType) -> PromptLineBuilder {
+        PromptLineBuilder {
+            line: PromptLine::new(shell),
+            shell,
+        }
     }
 
     /// Creates a Free `PromptLineBuilder`
-    pub fn new_free() -> PromptLineBuilder {
-        PromptLineBuilder { line: PromptLine::new_free() }
+    pub(crate) fn new_free(shell: ShellType) -> PromptLineBuilder {
+        PromptLineBuilder {
+            line: PromptLine::new_free(shell),
+            shell,
+        }
     }
 
     /// Increases indent by amt
@@ -120,12 +128,10 @@ impl PromptLineBuilder {
         self.indent_by(1)
     }
 
-    fn add_block<T: fmt::Display>(mut self, s: T, c: u16, bold: bool) -> PromptLineBuilder {
-        self.line.parts.push(PromptBox {
-            color: c,
-            text: format!("{}", s),
-            is_bold: bold,
-        });
+    fn add_block<T: fmt::Display>(mut self, text: T, color: u16, bold: bool) -> PromptLineBuilder {
+        self.line
+            .parts
+            .push(PromptBox::new(format!("{}", text), color, bold, self.shell));
 
         self
     }

@@ -1,46 +1,25 @@
-#![deny(
-    unused_allocation,
-    unused_attributes,
-    unused_features,
-    unused_import_braces,
-    unused_parens,
-    unused_must_use,
-    stable_features,
+#![deny(unused_allocation, unused_attributes, unused_features, unused_import_braces,
+        unused_parens, unused_must_use, stable_features, bad_style, unused)]
 
-    bad_style,
-    unused,
 
-    clippy
-)]
-
-// Some buggy clippy lints
-#![allow(
-    non_ascii_literal
-)]
-
-#![feature(
-    mpsc_select,
-    plugin,
-)]
-
-#![plugin(clippy)]
-
-extern crate term;
+#[macro_use]
+extern crate chan;
+extern crate clap;
 extern crate git2;
-extern crate unix_socket;
-extern crate prompt_buffer;
-extern crate time;
+extern crate log4rs;
 #[macro_use]
 extern crate log;
-extern crate log4rs;
 extern crate num;
+extern crate prompt_buffer;
+extern crate term;
+extern crate time;
+extern crate unix_socket;
 
-use prompt_buffer::thread::PromptThread;
-use prompt_buffer::buffer::PromptBuffer;
+use prompt_buffer::{PromptBuffer, PromptThread, ShellType};
 
 use std::collections::HashMap;
 use std::fs;
-use std::io::{Write, Read};
+use std::io::{Read, Write};
 
 use time::Duration;
 use log4rs::config;
@@ -52,15 +31,16 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::net::Shutdown;
 use std::thread;
-use std::sync::mpsc::{self, Receiver};
+use chan::Receiver;
 use std::os::unix::fs::MetadataExt;
 use std::process::Command;
+use clap::{App, Arg, ArgGroup};
 
 mod git;
 mod due_date;
 
-fn get_prompt() -> PromptBuffer {
-    let mut buf = PromptBuffer::new();
+fn get_prompt(shell: ShellType) -> PromptBuffer {
+    let mut buf = PromptBuffer::new(shell);
     buf.add_plugin(due_date::DueDatePlugin::new());
     buf.add_plugin(git::GitPlugin::new());
 
@@ -69,12 +49,10 @@ fn get_prompt() -> PromptBuffer {
 
 fn exe_changed() -> i64 {
     match env::current_exe() {
-        Ok(exe_path) => {
-            match fs::metadata(exe_path) {
-                Ok(m) => m.mtime(),
-                Err(_) => 0i64,
-            }
-        }
+        Ok(exe_path) => match fs::metadata(exe_path) {
+            Ok(m) => m.mtime(),
+            Err(_) => 0i64,
+        },
         Err(_) => 0i64,
     }
 }
@@ -97,54 +75,68 @@ enum RunMode {
 
 #[allow(dead_code)]
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    println!("{}ms $ ",
-             Duration::span(|| {
-                 run(&match args.len() {
-                     2 => RunMode::Daemon,
-                     1 => RunMode::Main,
-                     _ => panic!("Number of arguments must be 0 or 1"),
-                 });
-             })
-                 .num_milliseconds());
+    let matches = App::new("Megaprompt")
+        .version("0.1.0")
+        .author("Zachary Bush <zach@zmbush.com>")
+        .arg(
+            Arg::with_name("daemon")
+                .short("d")
+                .long("daemon")
+                .help("Run the daemon"),
+        )
+        .arg(
+            Arg::with_name("bash")
+                .short("b")
+                .long("bash")
+                .help("Get output for bash"),
+        )
+        .arg(
+            Arg::with_name("zsh")
+                .short("z")
+                .long("zsh")
+                .help("Get output for zsh"),
+        )
+        .group(
+            ArgGroup::with_name("mode")
+                .args(&["daemon", "bash", "zsh"])
+                .required(true),
+        )
+        .get_matches();
+    let daemon = matches.is_present("daemon");
+    let shell = if matches.is_present("bash") {
+        ShellType::Bash
+    } else {
+        ShellType::Zsh
+    };
+    run(
+        if daemon {
+            RunMode::Daemon
+        } else {
+            RunMode::Main
+        },
+        shell,
+    )
 }
 
 fn do_daemon(socket_path: &Path) {
-    // let stdout_path = Path::new("/var/log/megaprompt/current.out");
-    // let stderr_path = Path::new("/var/log/megaprompt/current.err");
-
-    // let _ = stdio::set_stdout(Box::new(File::create(&stdout_path)));
-    // let _ = stdio::set_stderr(Box::new(File::create(&stderr_path)));
     let main_log = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{d} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new("{h({f:>30.30}: {m}{n})}")))
         .build("/var/log/megaprompt/current.out")
         .expect("Unable to create file appender");
 
     let config = config::Config::builder()
         .appender(config::Appender::builder().build("main", Box::new(main_log)))
-        .build(config::Root::builder().appender("main").build(log::LogLevelFilter::Trace))
+        .build(
+            config::Root::builder()
+                .appender("main")
+                .build(log::LogLevelFilter::Trace),
+        )
         .expect("Unable to create logger config");
 
     log4rs::init_config(config).expect("Unable to init logger");
-/*
-    log4rs::init_config(
-        config::Config::builder(
-            config::Root::builder(log::LogLevelFilter::Trace)
-            .appender("main".to_owned())
-            .build())
-        .appender(config::Appender::builder().build("main", Box::new(FileAppender::builder().build("/var/log/megaprompt/current.out").expect("Unable to create file appender"))))
-            config::Appender::builder(
-                "main".to_owned(), Box::new(FileAppender::builder(
-                    "/var/log/megaprompt/current.out")
-                .pattern(log4rs::pattern::PatternLayout::new("%l\t%t\t- %m").expect("Bad format"))
-                .build().expect("Unable to create file appender")))
-            .build())
-        .build().expect("Unable to create config")
-    ).expect("Unable to init logger");
-    // log4rs::init_file("~/.megaprompt.toml", Default::default()).expect("Couldn't start logger");*/
 
     let last_modified = exe_changed();
-    let mut threads: HashMap<PathBuf, PromptThread> = HashMap::new();
+    let mut threads: HashMap<(PathBuf, ShellType), PromptThread> = HashMap::new();
 
     if socket_path.exists() {
         fs::remove_file(socket_path).expect("Unable to remove socket file");
@@ -165,30 +157,52 @@ fn do_daemon(socket_path: &Path) {
 
         let mut output = String::new();
         let _ = sock_try!(c.read_to_string(&mut output));
-        let output = PathBuf::from(&output);
-        info!("Preparing to respond to for {}", output.display());
+        let (output, shell) = if output.starts_with("!2 ") {
+            let parts = output.split(" ").collect::<Vec<_>>();
+            let output = PathBuf::from(&parts[1]);
+            let shell = match parts[2] {
+                "Bash" => ShellType::Bash,
+                "Zsh" => ShellType::Zsh,
+                _ => ShellType::Bash,
+            };
+            (output, shell)
+        } else {
+            (PathBuf::from(&output), ShellType::Bash)
+        };
+        info!(
+            "Preparing to respond to for {} [{:?}]",
+            output.display(),
+            shell
+        );
 
-        let keys: Vec<PathBuf> = threads.keys().cloned().collect();
-        for path in &keys {
-            if !threads.get_mut(path).expect("thread not there!").check_is_alive() {
-                info!("- Remove thread {}", path.display());
-                let _ = threads.remove(path);
+        let keys: Vec<(PathBuf, ShellType)> = threads.keys().cloned().collect();
+        for entry in &keys {
+            if !threads
+                .get_mut(entry)
+                .expect("thread not there!")
+                .check_is_alive()
+            {
+                info!("- Remove thread {}", entry.0.display());
+                let _ = threads.remove(entry);
             }
         }
 
-        if !threads.contains_key(&output) {
+        if !threads.contains_key(&(output.clone(), shell)) {
             info!("+ Add thread {}", output.display());
-            let t = sock_try!(PromptThread::new(output.clone(), &get_prompt));
-            let _ = threads.insert(output.clone(), t);
+            let t = sock_try!(PromptThread::new(output.clone(), &|| get_prompt(shell)));
+            let _ = threads.insert((output.clone(), shell), t);
         }
 
-        for path in threads.keys() {
-            info!("* Active thread {}", path.display());
+        for &(ref path, ref shell) in threads.keys() {
+            info!("* Active thread {} [{:?}]", path.display(), shell);
         }
 
-        let mut thr = threads.get_mut(&output).expect("Thread not present");
+        let thr = threads
+            .get_mut(&(output, shell))
+            .expect("Thread not present");
 
-        sock_try!(write!(c, "{}", sock_try!(thr.get(&get_prompt))));
+        info!("Getting response from thread");
+        sock_try!(write!(c, "{}", sock_try!(thr.get(&|| get_prompt(shell)))));
 
         info!("");
 
@@ -201,10 +215,12 @@ fn do_daemon(socket_path: &Path) {
 }
 
 fn oneshot_timer(dur: Duration) -> Receiver<()> {
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = chan::async();
 
     thread::spawn(move || {
-        thread::sleep(::std::time::Duration::from_millis(dur.num_milliseconds() as u64));
+        thread::sleep(::std::time::Duration::from_millis(
+            dur.num_milliseconds() as u64,
+        ));
         let _ = tx.send(());
     });
 
@@ -212,56 +228,67 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
 }
 
 fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String, String> {
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = chan::sync(0);
 
     let _ = thread::spawn(move || {
         let mut ret = String::new();
-        stream.read_to_string(&mut ret).expect("Unable to read from string");
+        stream
+            .read_to_string(&mut ret)
+            .expect("Unable to read from string");
         let _ = tx.send(ret);
     });
 
     let timeout = oneshot_timer(dur);
 
-    select! {
-        resp = rx.recv() => Ok(resp.expect("There is no response!")),
-        _ = timeout.recv() => Err("Timeout".to_owned())
+    #[allow(unused_mut)]
+    {
+        chan_select! {
+            rx.recv() ->resp => return Ok(resp.expect("There is no response!")),
+            timeout.recv() => return Err("Timeout".to_owned())
+        }
     }
 }
 
-fn do_main(socket_path: &Path) {
+fn do_main(socket_path: &Path, shell: ShellType) {
     let _ = Command::new("megapromptd").arg("start").output();
 
     let mut stream = match UnixStream::connect(socket_path) {
         Err(_) => {
             println!("Can't connect");
-            get_prompt().print();
+            get_prompt(shell).print();
             return;
         }
         Ok(stream) => stream,
     };
 
-    write!(&mut stream,
-           "{}",
-           env::current_dir().expect("There is no current dir").display())
-        .expect("Unable to print current directory");
-    stream.shutdown(Shutdown::Write).expect("Cannot shutdown stream");
+    write!(
+        &mut stream,
+        "!2 {} {:?}",
+        env::current_dir()
+            .expect("There is no current dir")
+            .display(),
+        shell
+    ).expect("Unable to print current directory");
+    stream
+        .shutdown(Shutdown::Write)
+        .expect("Cannot shutdown stream");
 
     match read_with_timeout(stream, Duration::milliseconds(100)) {
         Ok(s) => println!("{}", s),
         Err(_) => {
             println!("Response too slow");
-            get_prompt().print_fast();
+            get_prompt(shell).print_fast();
             return;
         }
     }
 }
 
-fn run(mode: &RunMode) {
+fn run(mode: RunMode, shell: ShellType) {
     let socket_path = Path::new("/tmp/megaprompt-socket");
 
-    match *mode {
+    match mode {
         RunMode::Daemon => do_daemon(socket_path),
-        RunMode::Main => do_main(socket_path),
+        RunMode::Main => do_main(socket_path, shell),
         RunMode::Test => {}
     }
 }

@@ -1,12 +1,10 @@
 extern crate time;
 
-use prompt_buffer::escape;
-use prompt_buffer::buffer::{PromptBufferPlugin, PluginSpeed};
-use prompt_buffer::line::{PromptLines, PromptLineBuilder};
+use prompt_buffer::{PluginSpeed, PromptBufferPlugin, PromptLines, ShellType};
 use term::color;
 use std::path::PathBuf;
 use std::fs::File;
-use std::io::{BufReader, BufRead};
+use std::io::{BufRead, BufReader};
 
 #[derive(Default)]
 pub struct DueDatePlugin;
@@ -69,7 +67,7 @@ impl<'s> ToTimePeriod for (&'s str, &'s str) {
 }
 
 impl PromptBufferPlugin for DueDatePlugin {
-    fn run(&mut self, _: &PluginSpeed, path: &PathBuf, lines: &mut PromptLines) {
+    fn run(&mut self, _: PluginSpeed, shell: ShellType, path: &PathBuf, lines: &mut PromptLines) {
         for mut path in PathTraversal::new(path) {
             path.push(".due");
 
@@ -84,37 +82,29 @@ impl PromptBufferPlugin for DueDatePlugin {
                     }
                 };
 
-                if let Ok(due_date) = time::strptime(line("").trim().as_ref(),
-                                                     "%a %b %d %H:%M:%S %Y") {
+                if let Ok(due_date) =
+                    time::strptime(line("").trim().as_ref(), "%a %b %d %H:%M:%S %Y")
+                {
                     let due = due_date.to_timespec();
                     let now = time::now().to_timespec();
 
                     let s = due.sec - now.sec;
-                    let (seconds, past_due) = if s < 0 {
-                        (-s, true)
-                    } else {
-                        (s, false)
-                    };
+                    let (seconds, past_due) = if s < 0 { (-s, true) } else { (s, false) };
                     let mut seconds: f32 = seconds as f32;
 
-                    let ups: [f32; 9] = [10.0,
-                                         10.0,
-                                         10.0,
-                                         365.0 / 30.0,
-                                         30.0,
-                                         24.0,
-                                         60.0,
-                                         60.0,
-                                         1.0];
-                    let time_periods = [("millenium", "millenia").as_period(),
-                                        ("century", "centuries").as_period(),
-                                        "decade".as_period(),
-                                        "year".as_period(),
-                                        "month".as_period(),
-                                        "day".as_period(),
-                                        "hour".as_period(),
-                                        "minute".as_period(),
-                                        "second".as_period()];
+                    let ups: [f32; 9] =
+                        [10.0, 10.0, 10.0, 365.0 / 30.0, 30.0, 24.0, 60.0, 60.0, 1.0];
+                    let time_periods = [
+                        ("millenium", "millenia").as_period(),
+                        ("century", "centuries").as_period(),
+                        "decade".as_period(),
+                        "year".as_period(),
+                        "month".as_period(),
+                        "day".as_period(),
+                        "hour".as_period(),
+                        "minute".as_period(),
+                        "second".as_period(),
+                    ];
 
                     let times = (0..ups.len()).map(|i| ups[i..].iter().fold(1.0, |a, &b| a * b));
 
@@ -150,17 +140,17 @@ impl PromptBufferPlugin for DueDatePlugin {
                         (color::CYAN, future, "")
                     };
 
-                    due_phrase = format!("{}{} {}: {}{}{}",
-                                         escape::col(color::MAGENTA),
-                                         title.trim(),
-                                         temporal.trim(),
-                                         escape::col(color),
-                                         due_phrase.trim(),
-                                         postfix);
+                    due_phrase = format!(
+                        "{}{} {}: {}{}{}",
+                        shell.col(color::MAGENTA),
+                        title.trim(),
+                        temporal.trim(),
+                        shell.col(color),
+                        due_phrase.trim(),
+                        postfix
+                    );
 
-                    lines.push(PromptLineBuilder::new()
-                                   .block(due_phrase)
-                                   .build());
+                    lines.push(shell.new_line().block(due_phrase).build());
                 }
             }
         }

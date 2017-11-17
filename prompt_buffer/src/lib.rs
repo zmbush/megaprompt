@@ -1,34 +1,24 @@
 //! Used as utility classes for megaprompt
 //!
 //! Allows easily constructing a command prompt
-#![deny(
-    deprecated,
-    missing_docs,
-    unused_imports,
-    unused_must_use,
-    unused_mut,
-    unused_parens,
-    unused_variables,
-    unused_features,
 
-    bad_style,
-    unused,
+#![deny(deprecated, missing_docs, unused_imports, unused_must_use, unused_mut, unused_parens,
+        unused_variables, unused_features, bad_style, unused)]
 
-    clippy
-)]
-
-#![feature(
-    mpsc_select,
-    plugin,
-)]
-#![plugin(clippy)]
-
-#[macro_use] extern crate log;
-extern crate term;
+#[macro_use]
+extern crate chan;
+#[macro_use]
+extern crate log;
 extern crate num;
+extern crate term;
 
-pub mod buffer;
-pub mod thread;
-pub mod line;
-pub mod escape;
-pub mod error;
+mod buffer;
+mod thread;
+mod line;
+mod error;
+mod shell;
+
+pub use buffer::{PluginSpeed, PromptBuffer, PromptBufferPlugin};
+pub use shell::ShellType;
+pub use thread::PromptThread;
+pub use line::PromptLines;

@@ -11,10 +11,11 @@ unix_socket = "*"
 log = "*"
 log4rs = "*"
 num = "*"
-clippy = "*"
+prompt_buffer = { path = "prompt_buffer" }
+chan = "*"
+clap = "*"
 
-[dependencies.prompt_buffer]
-path = "prompt_buffer"
+[workspace]
 
 [[bin]]
 name = "megaprompt"

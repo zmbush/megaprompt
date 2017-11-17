@@ -6,10 +6,10 @@
 //! leaking too many threads.
 use std::time::Duration;
 use std::thread;
-use std::sync::mpsc::{self, Sender, Receiver};
+use chan::{self, Receiver, Sender};
 use std::path::PathBuf;
 
-use buffer::{PromptBuffer, PluginSpeed};
+use buffer::{PluginSpeed, PromptBuffer};
 use error::PromptBufferResult;
 
 /// Stores information about prompt threads
@@ -22,9 +22,8 @@ pub struct PromptThread {
     alive: bool,
 }
 
-#[allow(cast_possible_truncation)]
 fn oneshot_timer(dur: Duration) -> Receiver<()> {
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = chan::async();
 
     thread::spawn(move || {
         thread::sleep(dur);
@@ -37,40 +36,42 @@ fn oneshot_timer(dur: Duration) -> Receiver<()> {
 
 impl PromptThread {
     /// Creates a new prompt thread for a given path
-    pub fn new(path: PathBuf,
-               make_prompt: &Fn() -> PromptBuffer)
-               -> PromptBufferResult<PromptThread> {
-        let (tx_notify, rx_notify) = mpsc::channel();
-        let (tx_prompt, rx_prompt) = mpsc::channel();
-        let (tx_death, rx_death) = mpsc::channel();
+    pub fn new(
+        path: PathBuf,
+        make_prompt: &Fn() -> PromptBuffer,
+    ) -> PromptBufferResult<PromptThread> {
+        let (tx_notify, rx_notify) = chan::async();
+        let (tx_prompt, rx_prompt) = chan::async();
+        let (tx_death, rx_death) = chan::async();
 
         let p = path.clone();
         let mut prompt = make_prompt();
         let cached = prompt.convert_to_string_ext(PluginSpeed::Fast);
         let name = format!("{}", path.display());
-        try!(thread::Builder::new().name(name.to_owned()).spawn(move || {
-            prompt.set_path(p);
+        try!(thread::Builder::new().name(name.to_owned()).spawn(
+            move || {
+                prompt.set_path(p);
 
-            loop {
-                let timeout = oneshot_timer(Duration::from_secs(10 * 60));
+                loop {
+                    let timeout = oneshot_timer(Duration::from_secs(10 * 60));
 
-                select! {
-                    _ = rx_notify.recv() => {
-                        if tx_prompt.send(prompt.convert_to_string()).is_err() {
-                            return;
+                    // Weird issue with stuff... Not sure yet...
+                    #[allow(unused_mut)]
+                    {
+                        chan_select! {
+                            rx_notify.recv() => {
+                                tx_prompt.send(prompt.convert_to_string())
+                            },
+                            timeout.recv() => {
+                                info!("Thread {} timed out", name);
+                                let _ = tx_death.send(());
+                                break;
+                            }
                         }
-                    },
-                    _ = timeout.recv() => {
-                        info!("Thread {} timed out", name);
-                        let _ = tx_death.send(());
-                        break;
                     }
                 }
-
-                // Drain notify channel
-                while let Ok(_) = rx_notify.try_recv() {}
             }
-        }));
+        ));
 
         Ok(PromptThread {
             send: tx_notify,
@@ -84,8 +85,15 @@ impl PromptThread {
 
     /// Checks whether a prompt thread has announced it's death.
     pub fn check_is_alive(&mut self) -> bool {
-        if self.death.try_recv().is_ok() {
-            self.alive = false;
+        let ref death = self.death;
+        #[allow(unused_mut)]
+        {
+            chan_select! {
+                default => {},
+                death.recv() =>{
+                    self.alive = false;
+                },
+            }
         }
 
         self.alive
@@ -99,29 +107,37 @@ impl PromptThread {
     /// Gets a result out of the prompt thread, or return a cached result
     /// if the response takes more than 100 milliseconds
     pub fn get(&mut self, make_prompt: &Fn() -> PromptBuffer) -> PromptBufferResult<String> {
+        info!("Checking lifesigns");
         if !self.check_is_alive() {
-            try!(self.revive(make_prompt));
+            info!("Thread is not alive. Reviving it");
+            self.revive(make_prompt)?;
         }
 
-        try!(self.send.send(()));
+        info!("Asking for a new prompt");
+        self.send.send(());
 
-        let timeout = oneshot_timer(Duration::from_millis(100));
+        info!("Creating timeout");
+        let timeout = oneshot_timer(Duration::from_millis(50));
 
         loop {
-            if let Ok(mut text) = self.recv.try_recv() {
-                while let Ok(t) = self.recv.try_recv() {
-                    text = t;
+            let ref recv = self.recv;
+            #[allow(unused_mut)]
+            {
+                chan_select! {
+                    default =>{},
+                    recv.recv() -> text => {
+                        info!("Got text");
+                        if let Some(t) = text {
+                            self.cached = t;
+                            return Ok(self.cached.clone());
+                        }
+                    },
+                    timeout.recv() => {
+                        info!("Got timeout");
+                        return Ok(self.cached.clone());
+                    }
                 }
-
-                self.cached = text;
-                return Ok(self.cached.clone());
             }
-
-            // We ran out of time!
-            if timeout.try_recv().is_ok() {
-                return Ok(self.cached.clone());
-            }
-
             thread::sleep(Duration::from_millis(1));
         }
     }

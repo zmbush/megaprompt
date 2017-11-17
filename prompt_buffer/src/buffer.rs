@@ -2,12 +2,11 @@
 use std::cmp;
 use std::env;
 use std::path::PathBuf;
-use std::default::Default;
 
 use term::color;
-
 use self::lines::*;
-use line::{PromptBox, PromptLineBuilder, PromptLines, PromptLineType};
+use line::{PromptBox, PromptLineBuilder, PromptLineType, PromptLines};
+use shell::ShellType;
 
 /// Defines the speed at which to run the `to_string` method
 #[derive(Clone, Copy)]
@@ -45,21 +44,17 @@ mod lines {
 pub struct PromptBuffer {
     plugins: Vec<Box<PromptBufferPlugin>>,
     path: PathBuf,
-}
-
-impl Default for PromptBuffer {
-    fn default() -> PromptBuffer {
-        PromptBuffer {
-            plugins: Vec::new(),
-            path: env::current_dir().unwrap_or_else(|_| PathBuf::new()),
-        }
-    }
+    shell: ShellType,
 }
 
 impl PromptBuffer {
     /// Construct a new default `PromptBuffer`
-    pub fn new() -> PromptBuffer {
-        PromptBuffer::default()
+    pub fn new(shell: ShellType) -> PromptBuffer {
+        PromptBuffer {
+            shell,
+            plugins: Vec::new(),
+            path: env::current_dir().unwrap_or_else(|_| PathBuf::new()),
+        }
     }
 
     fn get_line(flags: i16) -> char {
@@ -88,10 +83,12 @@ impl PromptBuffer {
     }
 
     fn start(&self, lines: &mut PromptLines) {
-        lines.push(PromptLineBuilder::new()
-                       .block("\\w")
-                       .block("\\H")
-                       .build());
+        lines.push(
+            PromptLineBuilder::new(self.shell)
+                .block(self.shell.dir())
+                .block(self.shell.hostname())
+                .build(),
+        );
     }
 
     /// Adds a plugin to the prompt buffer
@@ -119,7 +116,7 @@ impl PromptBuffer {
 
         if !speed.is_ignored() {
             for p in &mut self.plugins {
-                p.run(&speed, &self.path, &mut lines);
+                p.run(speed, self.shell, &self.path, &mut lines);
             }
         }
 
@@ -139,45 +136,37 @@ impl PromptBuffer {
             }
 
             for i in start..end + 1 {
-                line_text = format!("{}{}",
-                                    line_text,
-                                    PromptBuffer::get_line(if i == current && ix > 0 {
-                                        TOP
-                                    } else {
-                                        0
-                                    } |
-                                                           if i == after {
-                                        BOTTOM
-                                    } else {
-                                        0
-                                    } |
-                                                           if i > start {
-                                        LEFT
-                                    } else {
-                                        0
-                                    } |
-                                                           match line.line_type {
-                                        PromptLineType::Boxed => RIGHT,
-                                        PromptLineType::Free => {
-                                            if i == current {
-                                                0
-                                            } else {
-                                                RIGHT
-                                            }
-                                        }
-                                    }));
+                line_text = format!(
+                    "{}{}",
+                    line_text,
+                    PromptBuffer::get_line(
+                        if i == current && ix > 0 { TOP } else { 0 } | if i == after {
+                            BOTTOM
+                        } else {
+                            0
+                        } | if i > start { LEFT } else { 0 }
+                            | match line.line_type {
+                                PromptLineType::Boxed => RIGHT,
+                                PromptLineType::Free => if i == current {
+                                    0
+                                } else {
+                                    RIGHT
+                                },
+                            }
+                    )
+                );
             }
 
             for b in &line.parts {
                 line_text = match line.line_type {
-                    PromptLineType::Boxed => {
-                        format!("{}{}{}{}{}",
-                                line_text,
-                                PromptBuffer::get_line(LEFT | RIGHT),
-                                PromptBuffer::get_line(LEFT | TOP | BOTTOM),
-                                b,
-                                PromptBuffer::get_line(TOP | BOTTOM | RIGHT))
-                    }
+                    PromptLineType::Boxed => format!(
+                        "{}{}{}{}{}",
+                        line_text,
+                        PromptBuffer::get_line(LEFT | RIGHT),
+                        PromptBuffer::get_line(LEFT | TOP | BOTTOM),
+                        b,
+                        PromptBuffer::get_line(TOP | BOTTOM | RIGHT)
+                    ),
                     PromptLineType::Free => format!("{} {}", line_text, b),
                 };
             }
@@ -189,11 +178,18 @@ impl PromptBuffer {
             retval = format!("{}{}\n", retval, line_text);
         }
 
-        format!("{}{}{}{} ",
-                retval,
-                PromptBuffer::get_line(TOP | RIGHT),
-                PromptBuffer::get_line(LEFT | RIGHT),
-                PromptBox::create("\\$".to_owned(), color::RED, false))
+        format!(
+            "{}{}{}{} ",
+            retval,
+            PromptBuffer::get_line(TOP | RIGHT),
+            PromptBuffer::get_line(LEFT | RIGHT),
+            PromptBox::new(
+                self.shell.dollar().to_owned(),
+                color::RED,
+                false,
+                self.shell
+            )
+        )
     }
 
     /// Returns the prompt with plugins run
@@ -217,5 +213,11 @@ pub trait PromptBufferPlugin: Send {
     /// Should append as many PromptLines as it wants to the lines Vec
     ///
     /// The path can be used to provide context if necessary
-    fn run(&mut self, speed: &PluginSpeed, path: &PathBuf, lines: &mut PromptLines);
+    fn run(
+        &mut self,
+        speed: PluginSpeed,
+        shell: ShellType,
+        path: &PathBuf,
+        lines: &mut PromptLines,
+    );
 }
