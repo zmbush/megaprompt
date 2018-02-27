@@ -78,30 +78,30 @@ struct GitStatus {
 impl GitStatus {
     fn new(f: git2::Status) -> GitStatus {
         GitStatus {
-            index: if f.contains(git2::STATUS_INDEX_NEW) {
+            index: if f.contains(git2::Status::INDEX_NEW) {
                 StatusTypes::New
-            } else if f.contains(git2::STATUS_INDEX_MODIFIED) {
+            } else if f.contains(git2::Status::INDEX_MODIFIED) {
                 StatusTypes::Modified
-            } else if f.contains(git2::STATUS_INDEX_DELETED) {
+            } else if f.contains(git2::Status::INDEX_DELETED) {
                 StatusTypes::Deleted
-            } else if f.contains(git2::STATUS_INDEX_RENAMED) {
+            } else if f.contains(git2::Status::INDEX_RENAMED) {
                 StatusTypes::Renamed
-            } else if f.contains(git2::STATUS_INDEX_TYPECHANGE) {
+            } else if f.contains(git2::Status::INDEX_TYPECHANGE) {
                 StatusTypes::TypeChange
-            } else if f.contains(git2::STATUS_WT_NEW) {
+            } else if f.contains(git2::Status::WT_NEW) {
                 StatusTypes::Untracked
             } else {
                 StatusTypes::Clean
             },
-            workdir: if f.contains(git2::STATUS_WT_NEW) {
+            workdir: if f.contains(git2::Status::WT_NEW) {
                 StatusTypes::Untracked
-            } else if f.contains(git2::STATUS_WT_MODIFIED) {
+            } else if f.contains(git2::Status::WT_MODIFIED) {
                 StatusTypes::Modified
-            } else if f.contains(git2::STATUS_WT_DELETED) {
+            } else if f.contains(git2::Status::WT_DELETED) {
                 StatusTypes::Deleted
-            } else if f.contains(git2::STATUS_WT_RENAMED) {
+            } else if f.contains(git2::Status::WT_RENAMED) {
                 StatusTypes::Renamed
-            } else if f.contains(git2::STATUS_WT_TYPECHANGE) {
+            } else if f.contains(git2::Status::WT_TYPECHANGE) {
                 StatusTypes::TypeChange
             } else {
                 StatusTypes::Clean
@@ -209,7 +209,7 @@ impl GitPlugin {
         buffer: &mut PromptLines,
         path: &Path,
     ) -> Result<bool, Error> {
-        fn file_state_color(state: &StatusTypes) -> u16 {
+        fn file_state_color(state: &StatusTypes) -> u32 {
             match *state {
                 StatusTypes::Clean | StatusTypes::Untracked => color::WHITE,
                 StatusTypes::Deleted => color::RED,
@@ -327,9 +327,9 @@ impl GitPlugin {
                     .as_ref()
             )
         ).id();
-        let to = try!(
-            repo.revparse_single(branches.name.unwrap_or_else(|| "HEAD".to_owned()).as_ref())
-        ).id();
+        let to = try!(repo.revparse_single(
+            branches.name.unwrap_or_else(|| "HEAD".to_owned()).as_ref()
+        )).id();
 
         try!(revwalk.push(to));
         try!(revwalk.hide(from));
@@ -342,7 +342,7 @@ impl GitPlugin {
                 Err(_) => continue,
             };
 
-            let mut commit = try!(repo.find_commit(id));
+            let commit = try!(repo.find_commit(id));
 
             if !log_shown {
                 buffer.push(

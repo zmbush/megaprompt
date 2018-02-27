@@ -139,7 +139,7 @@ fn do_daemon(socket_path: &Path) {
         .build(
             config::Root::builder()
                 .appender("main")
-                .build(log::LogLevelFilter::Trace),
+                .build(log::LevelFilter::Trace),
         )
         .expect("Unable to create logger config");
 

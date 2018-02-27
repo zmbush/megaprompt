@@ -64,12 +64,12 @@ impl ShellType {
     }
 
     /// Returns a foreground color escape sequence
-    pub fn col(&self, c: u16) -> String {
+    pub fn col(&self, c: u32) -> String {
         self.col_cmd(&format!("{}m", c + 30))
     }
 
     /// Returns a bold foreground color escape sequence
-    pub fn bcol(&self, c: u16) -> String {
+    pub fn bcol(&self, c: u32) -> String {
         self.col_cmd(&format!("1;{}m", c + 30))
     }
 
