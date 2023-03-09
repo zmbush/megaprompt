@@ -6,9 +6,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![deny(unused_allocation, unused_attributes, unused_features, unused_import_braces,
-        unused_parens, unused_must_use, stable_features, bad_style, unused)]
-
+#![deny(
+    unused_allocation,
+    unused_attributes,
+    unused_features,
+    unused_import_braces,
+    unused_parens,
+    unused_must_use,
+    stable_features,
+    bad_style,
+    unused
+)]
 
 #[macro_use]
 extern crate chan;
@@ -17,7 +25,7 @@ extern crate git2;
 extern crate log4rs;
 #[macro_use]
 extern crate log;
-extern crate num;
+// extern crate num;
 extern crate prompt_buffer;
 extern crate term;
 extern crate time;
@@ -29,23 +37,23 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
 
-use time::Duration;
-use log4rs::config;
 use log4rs::append::file::FileAppender;
+use log4rs::config;
 use log4rs::encode::pattern::PatternEncoder;
+use time::Duration;
 
-use unix_socket::{UnixListener, UnixStream};
-use std::env;
-use std::path::{Path, PathBuf};
-use std::net::Shutdown;
-use std::thread;
 use chan::Receiver;
+use clap::{ArgGroup, Parser};
+use std::env;
+use std::net::Shutdown;
 use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
 use std::process::Command;
-use clap::{App, Arg, ArgGroup};
+use std::thread;
+use unix_socket::{UnixListener, UnixStream};
 
-mod git;
 mod due_date;
+mod git;
 
 fn get_prompt(shell: ShellType) -> PromptBuffer {
     let mut buf = PromptBuffer::new(shell);
@@ -69,7 +77,7 @@ macro_rules! sock_try {
     ($x:expr) => {
         match $x {
             Ok(v) => v,
-            Err(_) => continue
+            Err(_) => continue,
         }
     };
 }
@@ -81,45 +89,33 @@ enum RunMode {
     Test,
 }
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about=None)]
+#[command(group(ArgGroup::new("mode").required(true).args(["daemon", "bash", "zsh"])))]
+struct Args {
+    /// Run the daemon
+    #[arg(short, long)]
+    daemon: bool,
+
+    // Get output for bash
+    #[arg(short, long)]
+    bash: bool,
+
+    // Get output for zsh
+    #[arg(short, long)]
+    zsh: bool,
+}
+
 #[allow(dead_code)]
 fn main() {
-    let matches = App::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about(env!("CARGO_PKG_DESCRIPTION"))
-        .after_help(env!("CARGO_PKG_HOMEPAGE"))
-        .arg(
-            Arg::with_name("daemon")
-                .short("d")
-                .long("daemon")
-                .help("Run the daemon"),
-        )
-        .arg(
-            Arg::with_name("bash")
-                .short("b")
-                .long("bash")
-                .help("Get output for bash"),
-        )
-        .arg(
-            Arg::with_name("zsh")
-                .short("z")
-                .long("zsh")
-                .help("Get output for zsh"),
-        )
-        .group(
-            ArgGroup::with_name("mode")
-                .args(&["daemon", "bash", "zsh"])
-                .required(true),
-        )
-        .get_matches();
-    let daemon = matches.is_present("daemon");
-    let shell = if matches.is_present("bash") {
+    let args = Args::parse();
+    let shell = if args.bash {
         ShellType::Bash
     } else {
         ShellType::Zsh
     };
     run(
-        if daemon {
+        if args.daemon {
             RunMode::Daemon
         } else {
             RunMode::Main
@@ -168,7 +164,7 @@ fn do_daemon(socket_path: &Path) {
         let mut output = String::new();
         let _ = sock_try!(c.read_to_string(&mut output));
         let (output, shell) = if output.starts_with("!2 ") {
-            let parts = output.split(" ").collect::<Vec<_>>();
+            let parts = output.split(' ').collect::<Vec<_>>();
             let output = PathBuf::from(&parts[1]);
             let shell = match parts[2] {
                 "Bash" => ShellType::Bash,
@@ -203,7 +199,7 @@ fn do_daemon(socket_path: &Path) {
             let _ = threads.insert((output.clone(), shell), t);
         }
 
-        for &(ref path, ref shell) in threads.keys() {
+        for (path, shell) in threads.keys() {
             info!("* Active thread {} [{:?}]", path.display(), shell);
         }
 
@@ -225,13 +221,13 @@ fn do_daemon(socket_path: &Path) {
 }
 
 fn oneshot_timer(dur: Duration) -> Receiver<()> {
-    let (tx, rx) = chan::async();
+    let (tx, rx) = chan::r#async();
 
     thread::spawn(move || {
         thread::sleep(::std::time::Duration::from_millis(
-            dur.num_milliseconds() as u64,
+            dur.whole_milliseconds() as u64
         ));
-        let _ = tx.send(());
+        tx.send(());
     });
 
     rx
@@ -245,7 +241,7 @@ fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String, St
         stream
             .read_to_string(&mut ret)
             .expect("Unable to read from string");
-        let _ = tx.send(ret);
+        tx.send(ret);
     });
 
     let timeout = oneshot_timer(dur);
@@ -278,7 +274,8 @@ fn do_main(socket_path: &Path, shell: ShellType) {
             .expect("There is no current dir")
             .display(),
         shell
-    ).expect("Unable to print current directory");
+    )
+    .expect("Unable to print current directory");
     stream
         .shutdown(Shutdown::Write)
         .expect("Cannot shutdown stream");
@@ -288,7 +285,6 @@ fn do_main(socket_path: &Path, shell: ShellType) {
         Err(_) => {
             println!("Response too slow");
             get_prompt(shell).print_fast();
-            return;
         }
     }
 }

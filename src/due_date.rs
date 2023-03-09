@@ -9,10 +9,10 @@
 extern crate time;
 
 use prompt_buffer::{PluginSpeed, PromptBufferPlugin, PromptLines, ShellType};
-use term::color;
-use std::path::PathBuf;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
+use term::color;
 
 #[derive(Default)]
 pub struct DueDatePlugin;
@@ -28,8 +28,8 @@ struct PathTraversal {
 }
 
 impl PathTraversal {
-    fn new(p: &PathBuf) -> PathTraversal {
-        let mut pat = p.clone();
+    fn new(p: &Path) -> PathTraversal {
+        let mut pat: PathBuf = p.into();
         pat.push("dummy");
         PathTraversal { path: pat }
     }
@@ -75,7 +75,7 @@ impl<'s> ToTimePeriod for (&'s str, &'s str) {
 }
 
 impl PromptBufferPlugin for DueDatePlugin {
-    fn run(&mut self, _: PluginSpeed, shell: ShellType, path: &PathBuf, lines: &mut PromptLines) {
+    fn run(&mut self, _: PluginSpeed, shell: ShellType, path: &Path, lines: &mut PromptLines) {
         for mut path in PathTraversal::new(path) {
             path.push(".due");
 
@@ -90,15 +90,22 @@ impl PromptBufferPlugin for DueDatePlugin {
                     }
                 };
 
-                if let Ok(due_date) =
-                    time::strptime(line("").trim().as_ref(), "%a %b %d %H:%M:%S %Y")
-                {
-                    let due = due_date.to_timespec();
-                    let now = time::now().to_timespec();
+                let due_format = time::macros::format_description!(
+                    "[weekday repr:short] [month repr:short] [day] [hour]:[minute]:[second] [year repr:full]"
+                );
+                if let Ok(due_date) = time::Time::parse(line("").trim(), due_format) {
+                    // let due = due_date.to_timespec();
+                    let now = time::OffsetDateTime::now_utc();
+                    // let now = time::Instant::now();
+                    // let now = time::now().to_timespec();
 
-                    let s = due.sec - now.sec;
-                    let (seconds, past_due) = if s < 0 { (-s, true) } else { (s, false) };
-                    let mut seconds: f32 = seconds as f32;
+                    let s = due_date - now.time();
+                    let (seconds, past_due) = if s.is_negative() {
+                        (-s, true)
+                    } else {
+                        (s, false)
+                    };
+                    let mut seconds: f32 = seconds.as_seconds_f32();
 
                     let ups: [f32; 9] =
                         [10.0, 10.0, 10.0, 365.0 / 30.0, 30.0, 24.0, 60.0, 60.0, 1.0];
