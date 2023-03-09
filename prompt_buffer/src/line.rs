@@ -8,9 +8,9 @@
 
 //! Utilities and tools for drawing prompt lines
 
+use shell::ShellType;
 use std::fmt;
 use term::color;
-use shell::ShellType;
 
 /// The possible types for prompt lines
 #[derive(Clone, Copy)]
@@ -84,7 +84,7 @@ impl PromptLine {
             level: 0,
             line_type: PromptLineType::Boxed,
             parts: Vec::new(),
-            shell: shell,
+            shell,
         }
     }
 

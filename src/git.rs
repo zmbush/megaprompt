@@ -7,14 +7,14 @@
 // except according to those terms.
 
 extern crate git2;
-extern crate term;
+// extern crate term;
 
-use prompt_buffer::{PluginSpeed, PromptBufferPlugin, PromptLines, ShellType};
 use git2::{Error, Repository, StatusOptions};
-use std::{env, fmt};
-use term::color;
+use prompt_buffer::{PluginSpeed, PromptBufferPlugin, PromptLines, ShellType};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::{env, fmt};
+use term::color;
 
 trait RelativePath: Sized {
     fn make_relative(self, base: &Path) -> Option<Self>;
@@ -31,10 +31,7 @@ impl RelativePath for PathBuf {
         } else {
             let mut b = base.to_path_buf();
             if b.pop() {
-                match self.make_relative(&b) {
-                    Some(s) => Some(Path::new("..").join(s)),
-                    None => None,
-                }
+                self.make_relative(&b).map(|s| Path::new("..").join(s))
             } else {
                 None
             }
@@ -141,18 +138,12 @@ fn git_branch(repo: &Repository) -> Result<BranchInfo, Error> {
         let name = branch.name();
         return Ok(BranchInfo {
             name: match name {
-                Ok(n) => match n {
-                    Some(value) => Some(value.to_owned()),
-                    _ => None,
-                },
+                Ok(n) => n.map(|value| value.to_owned()),
                 _ => None,
             },
             upstream: match branch.upstream() {
                 Ok(upstream) => match upstream.name() {
-                    Ok(n) => match n {
-                        Some(value) => Some(value.to_owned()),
-                        _ => None,
-                    },
+                    Ok(n) => n.map(|value| value.to_owned()),
                     _ => None,
                 },
                 Err(_) => None,
@@ -220,7 +211,7 @@ impl GitPlugin {
             }
         }
 
-        let repo = try!(self.get_repo());
+        let repo = self.get_repo()?;
 
         let st = repo.statuses(Some(
             StatusOptions::new()
@@ -229,7 +220,8 @@ impl GitPlugin {
         ));
 
         let make_path_relative = |current: &Path| {
-            let mut fullpath = repo.workdir()
+            let mut fullpath = repo
+                .workdir()
                 .expect("Repo has no working dir")
                 .to_path_buf();
             fullpath.push(current);
@@ -239,7 +231,7 @@ impl GitPlugin {
         };
 
         if let Ok(statuses) = st {
-            if statuses.len() == 0 {
+            if statuses.is_empty() {
                 return Ok(false);
             }
 
@@ -257,10 +249,7 @@ impl GitPlugin {
 
                 let diff = match stat.head_to_index() {
                     Some(delta) => Some(delta),
-                    None => match stat.index_to_workdir() {
-                        Some(delta) => Some(delta),
-                        None => None,
-                    },
+                    None => stat.index_to_workdir(),
                 };
 
                 let val = format!(
@@ -301,9 +290,9 @@ impl GitPlugin {
                 buffer.push(line.indent().build());
             }
 
-            return Ok(true);
+            Ok(true)
         } else {
-            return Ok(false);
+            Ok(false)
         }
     }
 
@@ -313,26 +302,26 @@ impl GitPlugin {
         buffer: &mut PromptLines,
         has_status: bool,
     ) -> Result<bool, Error> {
-        let repo = try!(self.get_repo());
+        let repo = self.get_repo()?;
 
-        let branches = try!(git_branch(repo));
+        let branches = git_branch(repo)?;
 
-        let mut revwalk = try!(repo.revwalk());
+        let mut revwalk = repo.revwalk()?;
 
-        let from = try!(
-            repo.revparse_single(
+        let from = repo
+            .revparse_single(
                 branches
                     .upstream
                     .unwrap_or_else(|| "HEAD".to_owned())
-                    .as_ref()
-            )
-        ).id();
-        let to = try!(repo.revparse_single(
-            branches.name.unwrap_or_else(|| "HEAD".to_owned()).as_ref()
-        )).id();
+                    .as_ref(),
+            )?
+            .id();
+        let to = repo
+            .revparse_single(branches.name.unwrap_or_else(|| "HEAD".to_owned()).as_ref())?
+            .id();
 
-        try!(revwalk.push(to));
-        try!(revwalk.hide(from));
+        revwalk.push(to)?;
+        revwalk.hide(from)?;
 
         let mut log_shown = false;
 
@@ -342,7 +331,7 @@ impl GitPlugin {
                 Err(_) => continue,
             };
 
-            let commit = try!(repo.find_commit(id));
+            let commit = repo.find_commit(id)?;
 
             if !log_shown {
                 buffer.push(
@@ -363,7 +352,7 @@ impl GitPlugin {
                         "{}{} {}",
                         shell.reset(),
                         String::from_utf8_lossy(
-                            try!(try!(repo.find_object(commit.id(), None)).short_id()).deref()
+                            repo.find_object(commit.id(), None)?.short_id()?.deref()
                         ),
                         String::from_utf8_lossy(match commit.summary_bytes() {
                             Some(b) => b,
@@ -383,15 +372,15 @@ impl GitPlugin {
         buffer: &mut PromptLines,
         indented: bool,
     ) -> Result<bool, Error> {
-        let repo = try!(self.get_repo());
+        let repo = self.get_repo()?;
 
-        let branches = try!(git_branch(repo));
+        let branches = git_branch(repo)?;
 
         buffer.push(
             shell
                 .new_line()
                 .colored_block(
-                    &match (branches.name, branches.upstream) {
+                    match (branches.name, branches.upstream) {
                         (None, None) => "New Repository".to_owned(),
                         (Some(name), None) => name,
                         (Some(name), Some(remote)) => format!(
@@ -414,15 +403,9 @@ impl GitPlugin {
 }
 
 impl PromptBufferPlugin for GitPlugin {
-    fn run(
-        &mut self,
-        speed: PluginSpeed,
-        shell: ShellType,
-        path: &PathBuf,
-        lines: &mut PromptLines,
-    ) {
+    fn run(&mut self, speed: PluginSpeed, shell: ShellType, path: &Path, lines: &mut PromptLines) {
         if self.path != *path || self.repo.is_none() {
-            self.path = path.clone();
+            self.path = path.into();
             self.repo = get_git(&self.path);
         }
 

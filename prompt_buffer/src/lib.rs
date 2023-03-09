@@ -17,7 +17,6 @@
 extern crate chan;
 #[macro_use]
 extern crate log;
-extern crate num;
 extern crate term;
 
 mod buffer;

@@ -9,12 +9,13 @@
 //! The base class
 use std::cmp;
 use std::env;
+use std::path::Path;
 use std::path::PathBuf;
 
-use term::color;
 use self::lines::*;
 use line::{PromptBox, PromptLineBuilder, PromptLineType, PromptLines};
 use shell::ShellType;
+use term::color;
 
 /// Defines the speed at which to run the `to_string` method
 #[derive(Clone, Copy)]
@@ -31,10 +32,7 @@ pub enum PluginSpeed {
 
 impl PluginSpeed {
     fn is_ignored(&self) -> bool {
-        match *self {
-            PluginSpeed::Ignored => true,
-            _ => false,
-        }
+        matches!(*self, PluginSpeed::Ignored)
     }
 }
 
@@ -50,7 +48,7 @@ mod lines {
 /// Used to contain a list of `PromptLines`
 /// Knows how to format a serise of `PromptLines` in a pretty way
 pub struct PromptBuffer {
-    plugins: Vec<Box<PromptBufferPlugin>>,
+    plugins: Vec<Box<dyn PromptBufferPlugin>>,
     path: PathBuf,
     shell: ShellType,
 }
@@ -148,18 +146,17 @@ impl PromptBuffer {
                     "{}{}",
                     line_text,
                     PromptBuffer::get_line(
-                        if i == current && ix > 0 { TOP } else { 0 } | if i == after {
-                            BOTTOM
-                        } else {
-                            0
-                        } | if i > start { LEFT } else { 0 }
+                        if i == current && ix > 0 { TOP } else { 0 }
+                            | if i == after { BOTTOM } else { 0 }
+                            | if i > start { LEFT } else { 0 }
                             | match line.line_type {
                                 PromptLineType::Boxed => RIGHT,
-                                PromptLineType::Free => if i == current {
-                                    0
-                                } else {
-                                    RIGHT
-                                },
+                                PromptLineType::Free =>
+                                    if i == current {
+                                        0
+                                    } else {
+                                        RIGHT
+                                    },
                             }
                     )
                 );
@@ -221,11 +218,5 @@ pub trait PromptBufferPlugin: Send {
     /// Should append as many PromptLines as it wants to the lines Vec
     ///
     /// The path can be used to provide context if necessary
-    fn run(
-        &mut self,
-        speed: PluginSpeed,
-        shell: ShellType,
-        path: &PathBuf,
-        lines: &mut PromptLines,
-    );
+    fn run(&mut self, speed: PluginSpeed, shell: ShellType, path: &Path, lines: &mut PromptLines);
 }

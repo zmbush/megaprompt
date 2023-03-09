@@ -1,23 +1,23 @@
 [package]
-name = "Megaprompt"
-version = "1.0.0"
-publish = false
-authors = [ "Zachary Bush <zach@zmbush.com>" ]
-homepage = "https://github.com/zmbush/megaprompt"
+authors = ["Zachary Bush <zach@zmbush.com>"]
 description = "A prompt designed by Zach Bush. It works for him. Feel free to use it"
+homepage = "https://github.com/zmbush/megaprompt"
 license = "Apache-2.0/MIT"
+name = "Megaprompt"
+publish = false
+version = "1.0.0"
 
 [dependencies]
-git2 = "*"
-term = "*"
-time = "*"
-unix_socket = "*"
+chan = "*"
+clap = {version = "4.1.8", features = ["derive"]}
+git2 = "0.15.0"
 log = "*"
 log4rs = "*"
 num = "*"
-prompt_buffer = { path = "prompt_buffer" }
-chan = "*"
-clap = "*"
+prompt_buffer = {path = "prompt_buffer"}
+term = "*"
+time = {version = "0.3.20", features = ["parsing", "macros"]}
+unix_socket = "*"
 
 [workspace]
 
