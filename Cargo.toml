@@ -10,7 +10,7 @@ version = "1.0.0"
 [dependencies]
 chan = "*"
 clap = {version = "4.1.8", features = ["derive"]}
-git2 = "0.15.0"
+git2 = "0.16.1"
 log = "*"
 log4rs = "*"
 num = "*"
