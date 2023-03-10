@@ -1,11 +1,10 @@
 [package]
 
+authors = ["Zachary Bush <zachary.bush@meraki.net>"]
 name = "prompt_buffer"
 version = "0.0.1"
-authors = ["Zachary Bush <zachary.bush@meraki.net>"]
 
 [dependencies]
-term = "*"
-log = "*"
-num = "*"
-chan = "*"
+chan = "0.1.23"
+log = "0.4.17"
+term = "0.7.0"

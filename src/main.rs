@@ -25,11 +25,9 @@ extern crate git2;
 extern crate log4rs;
 #[macro_use]
 extern crate log;
-// extern crate num;
 extern crate prompt_buffer;
 extern crate term;
 extern crate time;
-extern crate unix_socket;
 
 use prompt_buffer::{PromptBuffer, PromptThread, ShellType};
 
@@ -47,10 +45,10 @@ use clap::{ArgGroup, Parser};
 use std::env;
 use std::net::Shutdown;
 use std::os::unix::fs::MetadataExt;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread;
-use unix_socket::{UnixListener, UnixStream};
 
 mod due_date;
 mod git;
