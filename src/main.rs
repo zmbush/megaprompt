@@ -191,10 +191,11 @@ fn do_daemon(socket_path: &Path) {
             }
         }
 
-        if !threads.contains_key(&(output.clone(), shell)) {
+        if let std::collections::hash_map::Entry::Vacant(e) = threads.entry((output.clone(), shell))
+        {
             info!("+ Add thread {}", output.display());
             let t = sock_try!(PromptThread::new(output.clone(), &|| get_prompt(shell)));
-            let _ = threads.insert((output.clone(), shell), t);
+            e.insert(t);
         }
 
         for (path, shell) in threads.keys() {
