@@ -1,12 +1,10 @@
-// Copyright 2017 Zachary Bush.
+// Copyright 2017 Zoey Bush.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
-
-extern crate time;
 
 use prompt_buffer::{PluginSpeed, PromptBufferPlugin, PromptLines, ShellType};
 use std::fs::File;

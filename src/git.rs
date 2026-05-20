@@ -1,4 +1,4 @@
-// Copyright 2017 Zachary Bush.
+// Copyright 2017 Zoey Bush.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -6,10 +6,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate git2;
-// extern crate term;
-
 use git2::{Error, Repository, StatusOptions};
+use log::trace;
 use prompt_buffer::{PluginSpeed, PromptBufferPlugin, PromptLines, ShellType};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};

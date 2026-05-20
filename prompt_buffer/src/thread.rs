@@ -1,4 +1,4 @@
-// Copyright 2017 Zachary Bush.
+// Copyright 2017 Zoey Bush.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -12,13 +12,14 @@
 //!
 //! Thred will run for 10 minutes after the last request, to avoid
 //! leaking too many threads.
-use chan::{self, Receiver, Sender};
+use chan::{self, Receiver, Sender, chan_select};
+use log::info;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 
-use buffer::{PluginSpeed, PromptBuffer};
-use error::PromptBufferResult;
+use crate::buffer::{PluginSpeed, PromptBuffer};
+use crate::error::PromptBufferResult;
 
 /// Stores information about prompt threads
 pub struct PromptThread {

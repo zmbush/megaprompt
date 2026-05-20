@@ -1,4 +1,4 @@
-// Copyright 2017 Zachary Bush.
+// Copyright 2017 Zoey Bush.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -13,8 +13,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use self::lines::*;
-use line::{PromptBox, PromptLineBuilder, PromptLineType, PromptLines};
-use shell::ShellType;
+use crate::line::{PromptBox, PromptLineBuilder, PromptLineType, PromptLines};
+use crate::shell::ShellType;
 use term::color;
 
 /// Defines the speed at which to run the `to_string` method

@@ -1,4 +1,4 @@
-// Copyright 2017 Zachary Bush.
+// Copyright 2017 Zoey Bush.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -18,17 +18,7 @@
     unused
 )]
 
-#[macro_use]
-extern crate chan;
-extern crate clap;
-extern crate git2;
-extern crate log4rs;
-#[macro_use]
-extern crate log;
-extern crate prompt_buffer;
-extern crate term;
-extern crate time;
-
+use log::{info, warn};
 use prompt_buffer::{PromptBuffer, PromptThread, ShellType};
 
 use std::collections::HashMap;
@@ -40,7 +30,7 @@ use log4rs::config;
 use log4rs::encode::pattern::PatternEncoder;
 use time::Duration;
 
-use chan::Receiver;
+use chan::{Receiver, chan_select};
 use clap::{ArgGroup, Parser};
 use std::env;
 use std::net::Shutdown;
@@ -57,6 +47,7 @@ fn get_prompt(shell: ShellType) -> PromptBuffer {
     let mut buf = PromptBuffer::new(shell);
     buf.add_plugin(due_date::DueDatePlugin::new());
     buf.add_plugin(git::GitPlugin::new());
+    // buf.add_plugin(jj::JujutsuPlugin::new());
 
     buf
 }
