@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::{env, fmt};
 use term::color;
 
-trait RelativePath: Sized {
+pub trait RelativePath: Sized {
     fn make_relative(self, base: &Path) -> Option<Self>;
 }
 
@@ -400,8 +400,15 @@ impl GitPlugin {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl PromptBufferPlugin for GitPlugin {
-    fn run(&mut self, speed: PluginSpeed, shell: ShellType, path: &Path, lines: &mut PromptLines) {
+    async fn run(
+        &mut self,
+        speed: PluginSpeed,
+        shell: ShellType,
+        path: &Path,
+        lines: &mut PromptLines,
+    ) -> Result<(), eyre::Report> {
         if self.path != *path || self.repo.is_none() {
             self.path = path.into();
             self.repo = get_git(&self.path);
@@ -417,5 +424,7 @@ impl PromptBufferPlugin for GitPlugin {
         trace!("Finding outgoing commits");
         let out = self.outgoing(shell, lines, st).ok().unwrap_or(false);
         let _ = self.end(shell, lines, st || out).ok();
+
+        Ok(())
     }
 }

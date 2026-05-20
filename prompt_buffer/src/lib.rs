@@ -32,4 +32,4 @@ mod thread;
 pub use buffer::{PluginSpeed, PromptBuffer, PromptBufferPlugin};
 pub use line::PromptLines;
 pub use shell::ShellType;
-pub use thread::PromptThread;
+pub use thread::PromptTask;

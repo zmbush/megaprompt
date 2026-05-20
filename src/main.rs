@@ -19,7 +19,7 @@
 )]
 
 use log::{info, warn};
-use prompt_buffer::{PromptBuffer, PromptThread, ShellType};
+use prompt_buffer::{PromptBuffer, PromptTask, ShellType};
 
 use std::collections::HashMap;
 use std::fs;
@@ -42,12 +42,17 @@ use std::thread;
 
 mod due_date;
 mod git;
+mod jj;
+mod one_of;
 
 fn get_prompt(shell: ShellType) -> PromptBuffer {
     let mut buf = PromptBuffer::new(shell);
     buf.add_plugin(due_date::DueDatePlugin::new());
-    buf.add_plugin(git::GitPlugin::new());
-    // buf.add_plugin(jj::JujutsuPlugin::new());
+    buf.add_plugin(
+        one_of::OneOf::new()
+            .with(jj::JujutsuPlugin::default())
+            .with(git::GitPlugin::new()),
+    );
 
     buf
 }
@@ -95,8 +100,8 @@ struct Args {
     zsh: bool,
 }
 
-#[allow(dead_code)]
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
     let shell = if args.bash {
         ShellType::Bash
@@ -111,9 +116,10 @@ fn main() {
         },
         shell,
     )
+    .await;
 }
 
-fn do_daemon(socket_path: &Path) {
+async fn do_daemon(socket_path: &Path) {
     let main_log = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{h({f:>30.30}: {m}{n})}")))
         .build("/var/log/megaprompt/current.out")
@@ -131,7 +137,7 @@ fn do_daemon(socket_path: &Path) {
     log4rs::init_config(config).expect("Unable to init logger");
 
     let last_modified = exe_changed();
-    let mut threads: HashMap<(PathBuf, ShellType), PromptThread> = HashMap::new();
+    let mut threads: HashMap<(PathBuf, ShellType), PromptTask> = HashMap::new();
 
     if socket_path.exists() {
         fs::remove_file(socket_path).expect("Unable to remove socket file");
@@ -185,7 +191,7 @@ fn do_daemon(socket_path: &Path) {
         if let std::collections::hash_map::Entry::Vacant(e) = threads.entry((output.clone(), shell))
         {
             info!("+ Add thread {}", output.display());
-            let t = sock_try!(PromptThread::new(output.clone(), &|| get_prompt(shell)));
+            let t = sock_try!(PromptTask::new(output.clone(), &|| get_prompt(shell)).await);
             e.insert(t);
         }
 
@@ -198,7 +204,11 @@ fn do_daemon(socket_path: &Path) {
             .expect("Thread not present");
 
         info!("Getting response from thread");
-        sock_try!(write!(c, "{}", sock_try!(thr.get(&|| get_prompt(shell)))));
+        sock_try!(write!(
+            c,
+            "{}",
+            sock_try!(thr.get(&|| get_prompt(shell)).await)
+        ));
 
         info!("");
 
@@ -245,13 +255,14 @@ fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String, St
     }
 }
 
-fn do_main(socket_path: &Path, shell: ShellType) {
+async fn do_main(socket_path: &Path, shell: ShellType) {
+    env_logger::init();
     let _ = Command::new("megapromptd").arg("start").output();
 
     let mut stream = match UnixStream::connect(socket_path) {
         Err(_) => {
             println!("Can't connect");
-            get_prompt(shell).print();
+            get_prompt(shell).print().await;
             return;
         }
         Ok(stream) => stream,
@@ -274,22 +285,22 @@ fn do_main(socket_path: &Path, shell: ShellType) {
         Ok(s) => println!("{}", s),
         Err(_) => {
             println!("Response too slow");
-            get_prompt(shell).print_fast();
+            get_prompt(shell).print_fast().await;
         }
     }
 }
 
-fn run(mode: RunMode, shell: ShellType) {
+async fn run(mode: RunMode, shell: ShellType) {
     let socket_path = Path::new("/tmp/megaprompt-socket");
 
     match mode {
-        RunMode::Daemon => do_daemon(socket_path),
-        RunMode::Main => do_main(socket_path, shell),
+        RunMode::Daemon => do_daemon(socket_path).await,
+        RunMode::Main => do_main(socket_path, shell).await,
         RunMode::Test => {}
     }
 }
 
-#[test]
-fn test_main_does_not_error() {
-    run(RunMode::Test, ShellType::Bash);
+#[tokio::test]
+async fn test_main_does_not_error() {
+    run(RunMode::Test, ShellType::Bash).await;
 }

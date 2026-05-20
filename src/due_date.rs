@@ -72,8 +72,15 @@ impl<'s> ToTimePeriod for (&'s str, &'s str) {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl PromptBufferPlugin for DueDatePlugin {
-    fn run(&mut self, _: PluginSpeed, shell: ShellType, path: &Path, lines: &mut PromptLines) {
+    async fn run(
+        &mut self,
+        _: PluginSpeed,
+        shell: ShellType,
+        path: &Path,
+        lines: &mut PromptLines,
+    ) -> Result<(), eyre::Report> {
         for mut path in PathTraversal::new(path) {
             path.push(".due");
 
@@ -167,5 +174,7 @@ impl PromptBufferPlugin for DueDatePlugin {
                 }
             }
         }
+
+        Ok(())
     }
 }
