@@ -1,10 +1,13 @@
 [package]
-
-authors = ["Zachary Bush <zachary.bush@meraki.net>"]
+authors = ["Zoey Bush <Zoey.bush@meraki.net>"]
 name = "prompt_buffer"
 version = "0.0.1"
+edition = "2024"
 
 [dependencies]
 chan = "0.1.23"
 log = "0.4.17"
 term = "0.7.0"
+async-trait = "0.1.89"
+tokio = "1.52.3"
+eyre = "0.6.12"

@@ -1,21 +1,29 @@
 [package]
-authors = ["Zachary Bush <zach@zmbush.com>"]
-description = "A prompt designed by Zach Bush. It works for him. Feel free to use it"
+authors = ["Zoey Bush <zoey@zmbush.com>"]
+description = "A prompt designed by Zoey Bush. It works for her. Feel free to use it"
 homepage = "https://github.com/zmbush/megaprompt"
 license = "Apache-2.0/MIT"
 name = "Megaprompt"
 publish = false
+edition = "2024"
 version = "1.0.0"
 
 [dependencies]
+async-trait = "0.1.89"
 chan = "0.1.23"
 clap = {version = "4.1.8", features = ["derive"]}
+env_logger = "0.11.10"
+eyre = "0.6.12"
+futures = "0.3.32"
 git2 = "0.16.1"
+jj-cli = "0.41.0"
+jj-lib = "0.41.0"
 log = "0.4.17"
 log4rs = "1.2.0"
 prompt_buffer = {path = "prompt_buffer"}
 term = "0.7.0"
-time = {version = "0.3.20", features = ["parsing", "macros"]}
+time = {version = "0.3.47", features = ["parsing", "macros"]}
+tokio = { version = "1.52.3", features = ["rt", "macros", "rt-multi-thread"] }
 
 [workspace]
 

@@ -1,4 +1,4 @@
-// Copyright 2017 Zachary Bush.
+// Copyright 2017 Zoey Bush.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -12,16 +12,16 @@
 //!
 //! Thred will run for 10 minutes after the last request, to avoid
 //! leaking too many threads.
-use chan::{self, Receiver, Sender};
+use log::info;
 use std::path::PathBuf;
-use std::thread;
 use std::time::Duration;
+use tokio::sync::mpsc::{Receiver, Sender};
 
-use buffer::{PluginSpeed, PromptBuffer};
-use error::PromptBufferResult;
+use crate::buffer::{PluginSpeed, PromptBuffer};
+use crate::error::PromptBufferResult;
 
 /// Stores information about prompt threads
-pub struct PromptThread {
+pub struct PromptTask {
     send: Sender<()>,
     recv: Receiver<String>,
     death: Receiver<()>,
@@ -30,58 +30,37 @@ pub struct PromptThread {
     alive: bool,
 }
 
-fn oneshot_timer(dur: Duration) -> Receiver<()> {
-    let (tx, rx) = chan::r#async();
-
-    thread::spawn(move || {
-        thread::sleep(dur);
-
-        tx.send(());
-    });
-
-    rx
-}
-
-impl PromptThread {
+impl PromptTask {
     /// Creates a new prompt thread for a given path
-    pub fn new(
+    pub async fn new(
         path: PathBuf,
         make_prompt: &dyn Fn() -> PromptBuffer,
-    ) -> PromptBufferResult<PromptThread> {
-        let (tx_notify, rx_notify) = chan::r#async();
-        let (tx_prompt, rx_prompt) = chan::r#async();
-        let (tx_death, rx_death) = chan::r#async();
+    ) -> PromptBufferResult<PromptTask> {
+        let (tx_notify, mut rx_notify) = tokio::sync::mpsc::channel(1);
+        let (tx_prompt, rx_prompt) = tokio::sync::mpsc::channel(1);
+        let (tx_death, rx_death) = tokio::sync::mpsc::channel(1);
 
         let p = path.clone();
         let mut prompt = make_prompt();
-        let cached = prompt.convert_to_string_ext(PluginSpeed::Fast);
-        let name = format!("{}", path.display());
-        thread::Builder::new()
-            .name(name.to_owned())
-            .spawn(move || {
-                prompt.set_path(p);
-
-                loop {
-                    let timeout = oneshot_timer(Duration::from_secs(10 * 60));
-
-                    // Weird issue with stuff... Not sure yet...
-                    #[allow(unused_mut)]
-                    {
-                        chan_select! {
-                            rx_notify.recv() => {
-                                tx_prompt.send(prompt.convert_to_string())
-                            },
-                            timeout.recv() => {
-                                info!("Thread {} timed out", name);
-                                tx_death.send(());
-                                break;
-                            }
-                        }
+        let cached = prompt.convert_to_string_ext(PluginSpeed::Fast).await;
+        tokio::task::spawn_local(async move {
+            prompt.set_path(p);
+            loop {
+                match tokio::time::timeout(Duration::from_mins(10), rx_notify.recv()).await {
+                    Ok(_) => tx_prompt
+                        .send(prompt.convert_to_string().await)
+                        .await
+                        .unwrap(),
+                    Err(e) => {
+                        info!("Task timed out: {e}");
+                        tx_death.send(()).await.unwrap();
+                        break;
                     }
                 }
-            })?;
+            }
+        });
 
-        Ok(PromptThread {
+        Ok(PromptTask {
             send: tx_notify,
             recv: rx_prompt,
             death: rx_death,
@@ -93,60 +72,43 @@ impl PromptThread {
 
     /// Checks whether a prompt thread has announced it's death.
     pub fn check_is_alive(&mut self) -> bool {
-        let death = &self.death;
-        #[allow(unused_mut)]
-        {
-            chan_select! {
-                default => {},
-                death.recv() =>{
-                    self.alive = false;
-                },
-            }
+        if let Ok(_) = self.death.try_recv() {
+            self.alive = false;
         }
-
         self.alive
     }
 
-    fn revive(&mut self, make_prompt: &dyn Fn() -> PromptBuffer) -> PromptBufferResult<()> {
-        *self = PromptThread::new(self.path.clone(), make_prompt)?;
+    async fn revive(&mut self, make_prompt: &dyn Fn() -> PromptBuffer) -> PromptBufferResult<()> {
+        *self = PromptTask::new(self.path.clone(), make_prompt).await?;
         Ok(())
     }
 
     /// Gets a result out of the prompt thread, or return a cached result
     /// if the response takes more than 100 milliseconds
-    pub fn get(&mut self, make_prompt: &dyn Fn() -> PromptBuffer) -> PromptBufferResult<String> {
+    pub async fn get(
+        &mut self,
+        make_prompt: &dyn Fn() -> PromptBuffer,
+    ) -> PromptBufferResult<String> {
         info!("Checking lifesigns");
         if !self.check_is_alive() {
             info!("Thread is not alive. Reviving it");
-            self.revive(make_prompt)?;
+            self.revive(make_prompt).await?;
         }
 
         info!("Asking for a new prompt");
-        self.send.send(());
+        self.send.send(()).await.unwrap();
 
-        info!("Creating timeout");
-        let timeout = oneshot_timer(Duration::from_millis(50));
-
-        loop {
-            let recv = &self.recv;
-            #[allow(unused_mut)]
-            {
-                chan_select! {
-                    default =>{},
-                    recv.recv() -> text => {
-                        info!("Got text");
-                        if let Some(t) = text {
-                            self.cached = t;
-                            return Ok(self.cached.clone());
-                        }
-                    },
-                    timeout.recv() => {
-                        info!("Got timeout");
-                        return Ok(self.cached.clone());
-                    }
+        match tokio::time::timeout(Duration::from_millis(50), self.recv.recv()).await {
+            Ok(text) => {
+                if let Some(t) = text {
+                    self.cached = t;
                 }
             }
-            thread::sleep(Duration::from_millis(1));
+            Err(_) => {
+                info!("Got timeout");
+            }
         }
+
+        Ok(self.cached.clone())
     }
 }

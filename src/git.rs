@@ -1,4 +1,4 @@
-// Copyright 2017 Zachary Bush.
+// Copyright 2017 Zoey Bush.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -6,17 +6,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate git2;
-// extern crate term;
-
 use git2::{Error, Repository, StatusOptions};
+use log::trace;
 use prompt_buffer::{PluginSpeed, PromptBufferPlugin, PromptLines, ShellType};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::{env, fmt};
 use term::color;
 
-trait RelativePath: Sized {
+pub trait RelativePath: Sized {
     fn make_relative(self, base: &Path) -> Option<Self>;
 }
 
@@ -402,8 +400,15 @@ impl GitPlugin {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl PromptBufferPlugin for GitPlugin {
-    fn run(&mut self, speed: PluginSpeed, shell: ShellType, path: &Path, lines: &mut PromptLines) {
+    async fn run(
+        &mut self,
+        speed: PluginSpeed,
+        shell: ShellType,
+        path: &Path,
+        lines: &mut PromptLines,
+    ) -> Result<(), eyre::Report> {
         if self.path != *path || self.repo.is_none() {
             self.path = path.into();
             self.repo = get_git(&self.path);
@@ -419,5 +424,7 @@ impl PromptBufferPlugin for GitPlugin {
         trace!("Finding outgoing commits");
         let out = self.outgoing(shell, lines, st).ok().unwrap_or(false);
         let _ = self.end(shell, lines, st || out).ok();
+
+        Ok(())
     }
 }

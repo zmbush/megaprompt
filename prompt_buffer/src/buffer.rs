@@ -1,4 +1,4 @@
-// Copyright 2017 Zachary Bush.
+// Copyright 2017 Zoey Bush.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -13,8 +13,9 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use self::lines::*;
-use line::{PromptBox, PromptLineBuilder, PromptLineType, PromptLines};
-use shell::ShellType;
+use crate::line::{PromptBox, PromptLineBuilder, PromptLineType, PromptLines};
+use crate::shell::ShellType;
+use log::trace;
 use term::color;
 
 /// Defines the speed at which to run the `to_string` method
@@ -114,7 +115,7 @@ impl PromptBuffer {
     /// Returns the result of the prompt
     ///
     /// Allows specifying wanted plugin speed
-    pub fn convert_to_string_ext(&mut self, speed: PluginSpeed) -> String {
+    pub async fn convert_to_string_ext(&mut self, speed: PluginSpeed) -> String {
         let mut retval = String::new();
         let mut lines = Vec::new();
 
@@ -122,7 +123,9 @@ impl PromptBuffer {
 
         if !speed.is_ignored() {
             for p in &mut self.plugins {
-                p.run(speed, self.shell, &self.path, &mut lines);
+                if let Err(e) = p.run(speed, self.shell, &self.path, &mut lines).await {
+                    trace!("Plugin failed with error: {e}");
+                }
             }
         }
 
@@ -198,25 +201,32 @@ impl PromptBuffer {
     }
 
     /// Returns the prompt with plugins run
-    pub fn convert_to_string(&mut self) -> String {
-        self.convert_to_string_ext(PluginSpeed::Slow)
+    pub async fn convert_to_string(&mut self) -> String {
+        self.convert_to_string_ext(PluginSpeed::Slow).await
     }
 
     /// Print a result with the plugins
-    pub fn print(&mut self) {
-        println!("{}", self.convert_to_string());
+    pub async fn print(&mut self) {
+        println!("{}", self.convert_to_string().await);
     }
 
     /// Print a result while skipping all plugins
-    pub fn print_fast(&mut self) {
-        println!("{}", self.convert_to_string_ext(PluginSpeed::Fast));
+    pub async fn print_fast(&mut self) {
+        println!("{}", self.convert_to_string_ext(PluginSpeed::Fast).await);
     }
 }
 
 /// Implement this trait to allow extension of the `PromptBuffer`'s result
+#[async_trait::async_trait(?Send)]
 pub trait PromptBufferPlugin: Send {
     /// Should append as many PromptLines as it wants to the lines Vec
     ///
     /// The path can be used to provide context if necessary
-    fn run(&mut self, speed: PluginSpeed, shell: ShellType, path: &Path, lines: &mut PromptLines);
+    async fn run(
+        &mut self,
+        speed: PluginSpeed,
+        shell: ShellType,
+        path: &Path,
+        lines: &mut PromptLines,
+    ) -> Result<(), eyre::Error>;
 }
