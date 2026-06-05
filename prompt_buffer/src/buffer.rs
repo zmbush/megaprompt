@@ -123,8 +123,9 @@ impl PromptBuffer {
 
         if !speed.is_ignored() {
             for p in &mut self.plugins {
-                if let Err(e) = p.run(speed, self.shell, &self.path, &mut lines).await {
-                    trace!("Plugin failed with error: {e}");
+                match p.run(speed, self.shell, &self.path).await {
+                    Ok(new_lines) => lines.extend(new_lines),
+                    Err(e) => trace!("Plugin failed with error: {e}"),
                 }
             }
         }
@@ -227,6 +228,5 @@ pub trait PromptBufferPlugin: Send {
         speed: PluginSpeed,
         shell: ShellType,
         path: &Path,
-        lines: &mut PromptLines,
-    ) -> Result<(), eyre::Error>;
+    ) -> Result<PromptLines, eyre::Error>;
 }

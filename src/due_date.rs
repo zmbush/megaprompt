@@ -79,8 +79,8 @@ impl PromptBufferPlugin for DueDatePlugin {
         _: PluginSpeed,
         shell: ShellType,
         path: &Path,
-        lines: &mut PromptLines,
-    ) -> Result<(), eyre::Report> {
+    ) -> Result<PromptLines, eyre::Report> {
+        let mut lines = PromptLines::new();
         for mut path in PathTraversal::new(path) {
             path.push(".due");
 
@@ -175,6 +175,6 @@ impl PromptBufferPlugin for DueDatePlugin {
             }
         }
 
-        Ok(())
+        Ok(lines)
     }
 }

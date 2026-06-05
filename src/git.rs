@@ -407,8 +407,8 @@ impl PromptBufferPlugin for GitPlugin {
         speed: PluginSpeed,
         shell: ShellType,
         path: &Path,
-        lines: &mut PromptLines,
-    ) -> Result<(), eyre::Report> {
+    ) -> Result<PromptLines, eyre::Report> {
+        let mut lines = PromptLines::new();
         if self.path != *path || self.repo.is_none() {
             self.path = path.into();
             self.repo = get_git(&self.path);
@@ -417,14 +417,14 @@ impl PromptBufferPlugin for GitPlugin {
         let st = match speed {
             PluginSpeed::Slow => {
                 trace!("Finding git status");
-                self.status(shell, lines, path).ok().unwrap_or(false)
+                self.status(shell, &mut lines, path).ok().unwrap_or(false)
             }
             _ => false,
         };
         trace!("Finding outgoing commits");
-        let out = self.outgoing(shell, lines, st).ok().unwrap_or(false);
-        let _ = self.end(shell, lines, st || out).ok();
+        let out = self.outgoing(shell, &mut lines, st).ok().unwrap_or(false);
+        let _ = self.end(shell, &mut lines, st || out).ok();
 
-        Ok(())
+        Ok(lines)
     }
 }

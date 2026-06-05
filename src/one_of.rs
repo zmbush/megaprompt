@@ -27,11 +27,10 @@ impl PromptBufferPlugin for OneOf {
         speed: PluginSpeed,
         shell: ShellType,
         path: &Path,
-        lines: &mut PromptLines,
-    ) -> Result<(), eyre::Report> {
+    ) -> Result<PromptLines, eyre::Report> {
         for option in &mut self.options {
-            match option.run(speed, shell, path, lines).await {
-                Ok(()) => return Ok(()),
+            match option.run(speed, shell, path).await {
+                Ok(lines) => return Ok(lines),
                 Err(e) => {
                     trace!("OneOf plugin failed: {e:?}");
                 }

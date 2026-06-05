@@ -31,7 +31,7 @@ use jj_lib::{
     working_copy::WorkingCopy,
     workspace::{WorkingCopyFactories, Workspace},
 };
-use prompt_buffer::PromptBufferPlugin;
+use prompt_buffer::{PromptBufferPlugin, PromptLines};
 use term::color;
 use tokio::process::Command;
 
@@ -51,8 +51,8 @@ impl PromptBufferPlugin for JujutsuPlugin {
         _speed: prompt_buffer::PluginSpeed,
         shell: prompt_buffer::ShellType,
         path: &std::path::Path,
-        lines: &mut prompt_buffer::PromptLines,
-    ) -> Result<(), eyre::Report> {
+    ) -> Result<PromptLines, eyre::Report> {
+        let mut lines = PromptLines::new();
         let mut relative = PathBuf::new();
         let mut current = path.to_owned();
         let (jj_path, root) = loop {
@@ -66,7 +66,7 @@ impl PromptBufferPlugin for JujutsuPlugin {
                     relative.push("../");
                     current = parent.to_owned();
                 }
-                None => return Ok(()),
+                None => return Ok(vec![]),
             }
         };
 
@@ -171,6 +171,6 @@ impl PromptBufferPlugin for JujutsuPlugin {
             )
         }
 
-        Ok(())
+        Ok(lines)
     }
 }
