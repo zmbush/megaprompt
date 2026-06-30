@@ -44,13 +44,14 @@ mod due_date;
 mod git;
 mod jj;
 mod one_of;
+mod tap;
 
 fn get_prompt(shell: ShellType) -> PromptBuffer {
     let mut buf = PromptBuffer::new(shell);
     buf.add_plugin(due_date::DueDatePlugin::new());
     buf.add_plugin(
         one_of::OneOf::new()
-            .with(jj::JujutsuPlugin::default())
+            .with(tap::Tap::new(jj::JujutsuPlugin::default()))
             .with(git::GitPlugin::new()),
     );
 

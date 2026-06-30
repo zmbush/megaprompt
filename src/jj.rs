@@ -100,20 +100,24 @@ impl PromptBufferPlugin for JujutsuPlugin {
         if tree.tree_ids() != parent.tree_ids() {
             let mut stream = parent.diff_stream(&tree, &EverythingMatcher);
             while let Some(diff) = stream.next().await {
+                let absolute = std::path::absolute(diff.path.to_fs_path_unchecked(&relative))?;
+                let color = if absolute.exists() {
+                    color::BLUE
+                } else {
+                    color::RED
+                };
                 lines.push(
                     shell
                         .new_free_line()
                         .colored_block(
                             format!(
                                 "{}",
-                                diff.path
-                                    .to_fs_path_unchecked(&relative)
-                                    .canonicalize()?
+                                absolute
                                     .make_relative(path)
                                     .ok_or_else(|| eyre::eyre!("Failed to make path relative"))?
                                     .display()
                             ),
-                            color::BLUE,
+                            color,
                         )
                         .indent()
                         .build(),
