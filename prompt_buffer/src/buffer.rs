@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use self::lines::*;
 use crate::line::{PromptBox, PromptLineBuilder, PromptLineType, PromptLines};
 use crate::shell::ShellType;
+use chrono::{DateTime, Local, Timelike as _};
 use log::trace;
 use term::color;
 
@@ -89,13 +90,38 @@ impl PromptBuffer {
         retval
     }
 
+    fn get_build_status() -> Option<String> {
+        let current_dir = std::env::current_dir().ok()?;
+        let current_dir_rel = current_dir.strip_prefix("/").ok()?;
+        let status_path = PathBuf::from("/tmp/build-status/")
+            .join(current_dir_rel)
+            .join("status");
+        if status_path.is_file()
+            && let Ok(status) = std::fs::read_to_string(&status_path)
+        {
+            Some(status)
+        } else {
+            Some(format!("{}", status_path.display()))
+        }
+    }
+
     fn start(&self, lines: &mut PromptLines) {
-        lines.push(
-            PromptLineBuilder::new(self.shell)
-                .block(self.shell.dir())
-                .block(self.shell.hostname())
-                .build(),
-        );
+        let now = std::time::SystemTime::now();
+        let now: DateTime<Local> = now.into();
+        let mut builder = PromptLineBuilder::new(self.shell)
+            .block(self.shell.dir(&self.path))
+            .block(self.shell.hostname())
+            .block(format!(
+                "{:02}:{:02}:{:02}",
+                now.hour(),
+                now.minute(),
+                now.second()
+            ));
+
+        if let Some(status) = PromptBuffer::get_build_status() {
+            builder = builder.block(status);
+        }
+        lines.push(builder.build());
     }
 
     /// Adds a plugin to the prompt buffer

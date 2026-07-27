@@ -86,7 +86,7 @@ enum RunMode {
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
-#[command(group(ArgGroup::new("mode").required(true).args(["daemon", "bash", "zsh"])))]
+#[command(group(ArgGroup::new("mode").required(true).args(["daemon", "bash", "zsh", "fish"])))]
 struct Args {
     /// Run the daemon
     #[arg(short, long)]
@@ -99,6 +99,10 @@ struct Args {
     // Get output for zsh
     #[arg(short, long)]
     zsh: bool,
+
+    // Get output for fish
+    #[arg(short, long)]
+    fish: bool,
 }
 
 #[tokio::main]
@@ -106,6 +110,8 @@ async fn main() {
     let args = Args::parse();
     let shell = if args.bash {
         ShellType::Bash
+    } else if args.fish {
+        ShellType::Fish
     } else {
         ShellType::Zsh
     };
@@ -247,7 +253,7 @@ fn read_with_timeout(mut stream: UnixStream, dur: Duration) -> Result<String, St
 
     let timeout = oneshot_timer(dur);
 
-    #[allow(unused_mut)]
+    #[allow(unused_mut, clippy::needless_return)]
     {
         chan_select! {
             rx.recv() ->resp => return Ok(resp.expect("There is no response!")),

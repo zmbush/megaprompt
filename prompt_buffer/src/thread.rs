@@ -72,7 +72,7 @@ impl PromptTask {
 
     /// Checks whether a prompt thread has announced it's death.
     pub fn check_is_alive(&mut self) -> bool {
-        if let Ok(_) = self.death.try_recv() {
+        if self.death.try_recv().is_ok() {
             self.alive = false;
         }
         self.alive

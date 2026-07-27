@@ -17,7 +17,7 @@ pub struct DueDatePlugin;
 
 impl DueDatePlugin {
     pub fn new() -> DueDatePlugin {
-        DueDatePlugin::default()
+        DueDatePlugin
     }
 }
 

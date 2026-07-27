@@ -25,6 +25,7 @@
 
 mod buffer;
 mod error;
+mod fish_pwd;
 mod line;
 mod shell;
 mod thread;

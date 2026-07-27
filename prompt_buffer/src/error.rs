@@ -7,8 +7,8 @@
 // except according to those terms.
 
 //! This module contains error object for `PromptBuffer`
-use std::io;
 use std::convert;
+use std::io;
 use std::sync::mpsc;
 
 /// Convenience wrapper for `Result<T, PromptBufferError>`
